@@ -1,6 +1,6 @@
 ---
 title: "parity.json schema"
-description: "parity.json is the machine-readable twin of parity.md, written by data-parity run in the run directory (or at --json FILE). Scripts should read it rather than the Markdown."
+description: "Field-by-field schema of parity.json, the machine-readable result written by data-parity run."
 ---
 
 `parity.json` is the machine-readable twin of `parity.md`, written by `data-parity run` in the run directory (or at
@@ -143,7 +143,7 @@ omitted (`models_total` and `models_differing` still count all three):
 | `table_level_buckets` | list | For an unpartitioned model: `{"bucket", "kind", "rows_a", "rows_b"}`. |
 | `structure_diff` | list of strings | What differs when `verdict` is `structure`. |
 | `notes` | list of strings | Informational notes from the macro (for example, no partition column). |
-| `scope` | list of strings | Scope lines such as `last=5\|checked=5\|total=120\|from=2025-04-26\|to=2025-04-30`. |
+| `scope` | list of strings | Scope lines from the macro: `|`-separated `key=value` fields (`last`, `checked`, `total`, `from`, `to`). |
 | `excluded_columns` | string | Comma-separated excluded columns. |
 | `comment` | string | Rare: for example `table totals differ although no partition does; not drilled`. |
 

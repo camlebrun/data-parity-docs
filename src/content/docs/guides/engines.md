@@ -1,6 +1,6 @@
 ---
 title: "Trino, BigQuery and DuckDB notes"
-description: "The hash recipe is identical on all three engines; what differs is the dbt setup and what has actually been tested. The full table is the engine support matrix."
+description: "Engine-specific notes for DuckDB, Trino and BigQuery: dbt setup, known limits and what has actually been tested."
 ---
 
 The hash recipe is identical on all three engines; what differs is the dbt setup and what has actually been tested.
@@ -39,8 +39,9 @@ The full table is the [engine support matrix](/data-parity-docs/reference/engine
 ## BigQuery
 
 - Validated by the **inline conformance test only**: the 79 synthetic rows hash identically to DuckDB and to Trino.
-- A real run of the CLI with BigQuery as side A exists (see the [example](/data-parity-docs/example/agg-daily-fuel/)), but **none
-  of the repository's test suites runs against BigQuery**, and **the cache has never been executed on BigQuery**. Cache writes there are untested.
+- One real manual run of `data-parity run` was done with a BigQuery table as side A against a DuckDB table, read-only (see the
+  [example](/data-parity-docs/example/agg-daily-fuel/)). **No automated test of the repository covers BigQuery.** The cache
+  `bigquery__` code was never run, and cache writes on BigQuery are untested.
 - The cache never creates a BigQuery dataset: it must already exist.
 - Pass 1 bills the bytes of every hashed column. Use a DATE partition column so that partition pruning applies, and
   bound the scope ([Scope and cost control](/data-parity-docs/guides/scope-and-cost/)).

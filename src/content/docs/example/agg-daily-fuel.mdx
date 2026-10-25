@@ -1,6 +1,6 @@
 ---
 title: "agg_daily_fuel: BigQuery vs DuckDB (a real run)"
-description: "A real run of data-parity on a production-shaped model, not on the test bed: a daily fuel-price aggregate built by the same dbt project on BigQuery (target dev, side A) and on a..."
+description: "A real BigQuery versus DuckDB run of data-parity on a daily fuel-price aggregate where 90% of days differ, how to read it, and what it does not prove."
 ---
 
 import YearChart from '../../../components/YearChart.astro';
@@ -50,8 +50,7 @@ Header and overview, verbatim:
 | `agg_daily_fuel` | ❌ differs | 119,070 | 119,070 | 0 | 6,479/7,237 (90%) | `median_fuel_price`, `avg_fuel_price`, `min_fuel_price`, ... |
 ```
 
-(The banner reads "1 of 1 model differ" in this run, which used a slightly older version of the tool; current versions
-print "differs".)
+(The banner reads "1 of 1 model differ" in this run, which used a slightly older version of the tool.)
 
 The **Not checked** section says what the run did not examine in depth:
 
@@ -84,8 +83,10 @@ The shares are relative to the **200 sampled days**, not to the 6,479 differing 
 
 ### Inline days
 
-The report lists 15 of the 6,479 differing days, spread evenly from first to last. Only the sampled ones carry
-buckets and columns; the others read `not sampled`:
+This run's report lists 15 of the 6,479 differing days, spread evenly from first to last. Only the sampled ones carry
+buckets and columns; the others read `not sampled`. (Current versions of the tool choose these 15 rows among the
+sampled days, so every inline row shows its buckets and columns; see
+[Reading the report](/data-parity-docs/getting-started/reading-the-report/#when-the-drill-is-sampled).)
 
 ```markdown
 | partition | what | rows dev | rows local | buckets | columns |

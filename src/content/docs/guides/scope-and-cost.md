@@ -1,6 +1,6 @@
 ---
 title: "Scope and cost control"
-description: "Pass 1 reads every hashed column of every row, once per engine. Bound it before you point the tool at a large table."
+description: "How to bound the cost of pass 1, which scans every hashed column of every row once per engine, before pointing the tool at a large table."
 ---
 
 Pass 1 reads every hashed column of every row, once per engine. Bound it before you point the tool at a

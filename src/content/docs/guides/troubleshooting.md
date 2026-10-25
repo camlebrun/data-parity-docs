@@ -1,6 +1,6 @@
 ---
 title: "Troubleshooting"
-description: "Messages below are the ones the tool and the macros print. Every failure of the CLI exits with code 2."
+description: "The error messages that the data-parity CLI and the dbt macros print, with their causes and fixes; every CLI failure exits with code 2."
 ---
 
 Messages below are the ones the tool and the macros print. Every failure of the CLI exits with code `2`.

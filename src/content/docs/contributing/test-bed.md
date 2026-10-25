@@ -1,6 +1,6 @@
 ---
 title: "Test bed and test suites"
-description: "Four suites, from fast to complete. Run the first after any change in src/, the others after any change in dbt_package/. None of them touches BigQuery."
+description: "The four test suites of the repository, the DuckDB test bed with its known corruptions, and when to run each one."
 ---
 
 Four suites, from fast to complete. Run the first after any change in `src/`, the others after any change in
@@ -13,7 +13,7 @@ Four suites, from fast to complete. Run the first after any change in `src/`, th
 | `test_cache.sh` | `bash integration_tests/test_cache.sh` | The closed-partition cache macros. |
 | `test_config_guards.sh` | `bash integration_tests/test_config_guards.sh` | Bad or ambiguous arguments and model configs must fail loudly or be read correctly. |
 
-Results when this documentation was written (macOS, dbt Fusion 2.0.9, Python 3.14, DuckDB 1.3.2 to build the data):
+Results when this documentation was written (macOS, dbt Fusion 2.0.9, Python 3.14, DuckDB 1.3.2 to build the data, for this earlier run):
 
 - pytest: 55 passed, 2 skipped (the real-dbt tests, `DBT_FUSION` not set);
 - `test_reconcile.sh` (Fusion only, no `DBT_CORE`, no `TRINO`): ALL CHECKS PASSED;
@@ -41,9 +41,10 @@ data-parity run --a engine_a --b engine_b
 
 Run from `integration_tests/`: the DuckDB paths in `profiles.yml` are relative to it.
 
-If dbt reports `Trying to read a database file with version number ..., but we can only read versions between ...`,
-the DuckDB that generated the files is newer than the one your dbt embeds: regenerate with an older DuckDB
-(`--with duckdb==1.3.2` worked with dbt Fusion 2.0.9).
+`generate.py` writes the DuckDB files with `storage_compatibility_version` set to `v1.0.0`, so dbt Fusion can read them
+whatever DuckDB version built them (the previous "unreadable, storage version 999" warning no longer applies; this
+page's author regenerated them with DuckDB 2.0.0 and dbt Fusion 2.0.9 built both targets). The models are tables that
+**must be built** with `dbt run --target engine_a` and `dbt run --target engine_b` before `data-parity run`.
 
 ## Ground truth
 

@@ -1,6 +1,6 @@
 ---
 title: "Validating the hash on a new engine"
-description: "The whole approach rests on one property: the same canonical row text and the same MD5 slices on every engine. Supporting a new engine means proving that property again."
+description: "How to add a new engine: implement the canonical row text for it and prove that it hashes the conformance set exactly like the others."
 ---
 
 The whole approach rests on one property: **the same canonical row text and the same MD5 slices on every engine**.

@@ -1,6 +1,6 @@
 ---
 title: "How it works"
-description: "data-parity answers one question: *are table T on engine A and table T on engine B the same?* It does so by comparing small aggregates, never rows."
+description: "How data-parity decides whether table T is the same on engine A and engine B by comparing small hash aggregates instead of rows."
 ---
 
 data-parity answers one question: *are table T on engine A and table T on engine B the same?* It does so by

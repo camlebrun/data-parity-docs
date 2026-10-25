@@ -1,6 +1,6 @@
 ---
 title: "Partitions, buckets and the three passes"
-description: "The CLI never scans more than it needs. It runs up to three passes, each only on what the previous one flagged."
+description: "How the CLI narrows a difference in up to three passes, from partitions to hash buckets to columns, scanning only what the previous pass flagged."
 ---
 
 The CLI never scans more than it needs. It runs up to three passes, each only on what the previous one flagged.
