@@ -1,0 +1,47 @@
+---
+// Share of differing days per year. Rendered at build time from src/data/years.json
+// (rows: [year, differing_days, total_days, percent]). Colours come from the theme tokens,
+// so the chart follows the light/dark toggle.
+import rows from '../data/years.json';
+
+const W = 760, H = 380, L = 52, R = 16, T = 40, B = 56;
+const pw = W - L - R, ph = H - T - B;
+const slot = pw / rows.length;
+const bw = slot * 0.7;
+const ticks = [0, 25, 50, 75, 100];
+const bars = rows.map(([year, d, t, pct], i) => {
+  const x = L + i * slot + (slot - bw) / 2;
+  const h = (ph * (pct as number)) / 100;
+  return { year, d, t, pct: pct as number, x, y: T + ph - h, h, cx: x + bw / 2 };
+});
+---
+
+<figure class="dp-chart">
+  <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="dp-chart-t dp-chart-d">
+    <title id="dp-chart-t">Share of differing days per year, agg_daily_fuel</title>
+    <desc id="dp-chart-d">
+      Bar chart: for each year 2007 to 2026, the percentage of days whose hash differs between the two
+      engines. It rises from 47 percent in 2007 to between 95 and 100 percent in every full year from 2014 on.
+    </desc>
+    <text class="head" x={L} y="22">Share of days that differ, per year (agg_daily_fuel, BigQuery vs DuckDB)</text>
+    {ticks.map((p) => {
+      const y = T + ph - (ph * p) / 100;
+      return (
+        <>
+          <line class="grid" x1={L} y1={y} x2={W - R} y2={y} />
+          <text x={L - 6} y={y + 4} text-anchor="end">{p}%</text>
+        </>
+      );
+    })}
+    {bars.map((b) => (
+      <>
+        <rect class="bar" x={b.x} y={b.y} width={bw} height={b.h} rx="2">
+          <title>{`${b.year}: ${b.d} of ${b.t} days (${b.pct.toFixed(1)}%)`}</title>
+        </rect>
+        <text x={b.cx} y={T + ph + 16} text-anchor="middle" transform={`rotate(-60 ${b.cx} ${T + ph + 16})`}>{b.year}</text>
+      </>
+    ))}
+    <text x={L + pw / 2} y={H - 6} text-anchor="middle">2026 is a partial year: 297 days to 2026-10-24</text>
+  </svg>
+  <figcaption class="sr-only">Share of days that differ, per year.</figcaption>
+</figure>

@@ -1,0 +1,60 @@
+---
+title: "Exit codes"
+description: "Applies to data-parity run. For conformance: 0 identical, 1 different, 2 error. For report: 0 or 2."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+| Code | Verdict (`parity.json`) | Printed `RESULT:` | Meaning |
+|--:|---|---|---|
+| `0` | `identical` | `ISO: all N models identical` | Every aggregate matched on the whole tables. |
+| `0` | `identical_scoped` | `ISO on the checked scope (...): all N models identical` | Matched inside the checked scope only. The run also prints `scope_limited: ...` and the JSON has `"scope_limited": true`. |
+| `1` | `differences` | `DIFFERENCES: K of N models differ` | At least one model differs (values, rows, or structure). |
+| `2` | `error` | `ERROR: no verdict (...)` | The comparison could not complete. |
+
+Applies to `data-parity run`. For `conformance`: `0` identical, `1` different, `2` error. For `report`: `0` or `2`.
+
+## What makes exit code 2
+
+Any failure is `2`, **never `0` or `1`**:
+
+- dbt failed on either side (non-zero exit, or no `PARITY|` line in its output);
+- unknown target, unknown or untagged model, model missing on one side;
+- a malformed `PARITY|` line;
+- usage errors: missing `--a` / `--b`, no `dbt_project.yml`, invalid option values;
+- a work directory or report that cannot be written;
+- an unexpected internal error (printed as `data-parity: internal error: ...`).
+
+An interrupted run (Ctrl-C) also exits `2`.
+
+## Scoped passes
+
+A scoped verdict exits `0` because nothing differs where it looked, but it is **not** an "identical" verdict about the
+tables. A script that wants "the whole table matches" must read `parity.json`:
+
+<Tabs syncKey="shell">
+<TabItem label="macOS / Linux">
+
+
+```bash
+data-parity run orders --a dev --b local --json parity.json
+rc=$?
+scoped=$(python3 -c "import json; print(json.load(open('parity.json'))['scope_limited'])")
+[ "$rc" -eq 0 ] && [ "$scoped" = "False" ] && echo "whole table identical"
+```
+
+</TabItem>
+<TabItem label="PowerShell">
+
+
+```powershell
+data-parity run orders --a dev --b local --json parity.json
+$rc = $LASTEXITCODE
+$scoped = (Get-Content parity.json -Raw | ConvertFrom-Json).scope_limited
+if ($rc -eq 0 -and -not $scoped) { "whole table identical" }
+```
+
+Not run on Windows.
+
+</TabItem>
+</Tabs>

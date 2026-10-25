@@ -1,0 +1,203 @@
+---
+title: "agg_daily_fuel: BigQuery vs DuckDB (a real run)"
+description: "A real run of data-parity on a production-shaped model, not on the test bed: a daily fuel-price aggregate built by the same dbt project on BigQuery (target dev, side A) and on a..."
+---
+
+import YearChart from '../../../components/YearChart.astro';
+
+A real run of data-parity on a production-shaped model, not on the test bed: a daily fuel-price aggregate built by
+the same dbt project on **BigQuery** (target `dev`, side A) and on a local **DuckDB** file (target `local`, side B).
+It shows what the report looks like when almost everything differs, how to read it, and, as importantly, what it
+does **not** establish.
+
+:::note[In one paragraph]
+The two tables have the same shape (119,070 rows on each side, no missing or extra row) but **6,479 of 7,237 days
+(90 %) have different values**. On a sample of 200 differing days, the median differs on 84 %, the average on 68 %,
+the minimum on 47 % and the maximum on 28 %. The median is expected to differ by construction; the other three
+columns are not explained by that. A working hypothesis exists (a non-deterministic deduplication in staging)
+but **this run has not confirmed it**.
+:::
+
+## The model and the setup
+
+`agg_daily_fuel` has one row per day and fuel/station segment (primary key `event_date, fuel_station_segment`) with
+the average, median, minimum and maximum fuel price per fuel type and station type. Its columns, as seen by the
+tool: `avg_fuel_price`, `max_fuel_price`, `median_fuel_price`, `min_fuel_price` (float), `event_date` (date),
+`fuel_station_segment`, `fuel_type`, `station_type` (string). It is partitioned by `event_date`, from 2007-01-01 to
+2026-10-24 (7,237 days on each side). The column `meta_modif_date` is excluded by the default `meta_` prefix rule.
+
+The command:
+
+```bash
+data-parity run agg_daily_fuel --a dev --b local
+```
+
+:::note[Cost]
+Pass 1 is **one grouped scan per engine** over the model (here a small aggregate table; on a large table it is
+the main cost, see [Scope and cost control](/data-parity-docs/guides/scope-and-cost/)). Passes 2 and 3 then ran on the 200
+sampled days only. No row left either engine.
+:::
+
+## The report
+
+Header and overview, verbatim:
+
+```markdown
+> ❌ **Differences found**: 1 of 1 model differ.
+
+| model | verdict | rows dev | rows local | Δ rows | partitions differing | main columns |
+|---|---|--:|--:|--:|---|---|
+| `agg_daily_fuel` | ❌ differs | 119,070 | 119,070 | 0 | 6,479/7,237 (90%) | `median_fuel_price`, `avg_fuel_price`, `min_fuel_price`, ... |
+```
+
+(The banner reads "1 of 1 model differ" in this run, which used a slightly older version of the tool; current versions
+print "differs".)
+
+The **Not checked** section says what the run did not examine in depth:
+
+```markdown
+- **Column attribution is sampled for `agg_daily_fuel`** (`--drill-limit 200`): column attribution is based on a sample
+  of 200 of 6,479 differing days, spread evenly from 2007-01-03 to 2026-10-24; the other 6,279 days are compared at
+  partition level only (buckets and columns not attributed).
+- **Excluded columns** (by configuration, `meta.data_parity`): `agg_daily_fuel`: `meta_modif_date`.
+```
+
+### Ranked columns (sampled days)
+
+| column | sampled days affected | share of sampled days |
+|---|--:|--:|
+| `median_fuel_price` | 168 | 84% |
+| `avg_fuel_price` | 135 | 68% |
+| `min_fuel_price` | 94 | 47% |
+| `max_fuel_price` | 56 | 28% |
+
+The shares are relative to the **200 sampled days**, not to the 6,479 differing days. All 6,479 differing days are
+*changed values (same row count)*; there are 0 days with missing or extra rows.
+
+### Timeline
+
+| period | differing | of | share of the period |
+|---|--:|--:|--:|
+| 200x | 683 | 1,096 | 62% |
+| 201x | 3,410 | 3,652 | 93% |
+| 202x | 2,386 | 2,489 | 96% |
+
+### Inline days
+
+The report lists 15 of the 6,479 differing days, spread evenly from first to last. Only the sampled ones carry
+buckets and columns; the others read `not sampled`:
+
+```markdown
+| partition | what | rows dev | rows local | buckets | columns |
+|---|---|--:|--:|---|---|
+| 2007-01-03 | same row count, different hashes: changed values | 6 | 6 | 1: 17 | `median_fuel_price` |
+| 2009-03-12 | same row count, different hashes: changed values | 12 | 12 | not sampled | not sampled |
+| ...
+| 2026-10-24 | same row count, different hashes: changed values | 17 | 17 | 1: 99 | `median_fuel_price` |
+```
+
+The complete list of the 6,479 days is in `parity.json` (aggregates only). The figures below are computed from it and
+from the pass-1 output of the same run.
+
+## Differing days per year
+
+| Year | Differing days | Days | Share |
+|---|--:|--:|--:|
+| 2007 | 173 | 365 | 47.4% |
+| 2008 | 246 | 366 | 67.2% |
+| 2009 | 264 | 365 | 72.3% |
+| 2010 | 297 | 365 | 81.4% |
+| 2011 | 336 | 365 | 92.1% |
+| 2012 | 325 | 366 | 88.8% |
+| 2013 | 331 | 365 | 90.7% |
+| 2014 | 351 | 365 | 96.2% |
+| 2015 | 351 | 365 | 96.2% |
+| 2016 | 355 | 366 | 97.0% |
+| 2017 | 346 | 365 | 94.8% |
+| 2018 | 354 | 365 | 97.0% |
+| 2019 | 364 | 365 | 99.7% |
+| 2020 | 361 | 366 | 98.6% |
+| 2021 | 363 | 365 | 99.5% |
+| 2022 | 358 | 365 | 98.1% |
+| 2023 | 355 | 365 | 97.3% |
+| 2024 | 355 | 366 | 97.0% |
+| 2025 | 365 | 365 | 100.0% |
+| 2026 | 229 | 297 | 77.1% |
+| **Total** | **6,479** | **7,237** | **89.5%** |
+
+<YearChart />
+
+The chart is a static SVG generated by a small script from the numbers in the table (no JavaScript). 2026 is a
+partial year (297 days, to 2026-10-24).
+
+The share of differing days rises from 47 % in 2007 to between 95 % and 100 % in every full year from 2014 on (2026 is
+partial and at 77 %). Early years also have fewer rows per
+day (6 on 2007-01-03, 18 from 2013), which may partly explain why fewer of their days differ; this run does not test it.
+
+## What this result means, and what it does not
+
+**What the run shows**
+
+- The two tables have the same row counts and the same partitions on both sides (no missing or extra rows). The
+  disagreement is entirely in **values**.
+- It is widespread: 90 % of all days, 96 % of the days in the 2020s.
+- Float columns are compared after rounding to 6 decimals, so the differences are not last-bit floating-point noise.
+
+**The median is expected to differ.** One engine computes an approximate quantile, the other an exact median. This is
+a known issue of the model's owner: a differing `median_fuel_price` is not, by itself, evidence of a new bug.
+
+**But the median does not explain the rest.** In the 200 sampled days:
+
+- 157 days (79 %) have at least one column other than the median in the difference;
+- on 32 days the median is **not** among the differing columns, while another column is;
+- `avg_fuel_price` differs on 68 % of sampled days, `min_fuel_price` on 47 % and `max_fuel_price` on 28 %. A minimum
+  or a maximum does not depend on how a median is approximated;
+- the sampled days hold 3,349 rows and 866 buckets differ. A differing bucket contains at least one differing row, so
+  **at least 26 %** of the rows of these days differ.
+
+Among the sampled days the proportion also grows over time (average: 29 % of the 21 sampled days of the 2000s, 65 % of
+the 105 of the 2010s, 82 % of the 74 of the 2020s; maximum: 5 %, 19 %, 47 %). These sub-samples are small: treat the
+figures as indications.
+
+**The working hypothesis, not confirmed.** The owner suspects a **non-deterministic deduplication in staging**:
+several prices for the same station, fuel and day tie on the sort key, so each engine keeps a different one, which
+would change the average, the minimum and the maximum. This fits the pattern (same row counts, values differing on all
+four statistics). **This run does not test it**, and the same pattern would also fit other causes, such as different
+upstream snapshots on the two sides.
+
+:::caution[What was not done]
+No staging model was compared, no deduplication was inspected, and nothing was re-run after a fix. The next
+cheapest step is the one suggested in [Troubleshooting](/data-parity-docs/guides/troubleshooting/): run
+`data-parity run` on the staging model that feeds `agg_daily_fuel`. If staging already differs with equal row
+counts, the hypothesis becomes testable; if staging is identical, the cause is in the aggregation step.
+:::
+
+## A lesson on sampling
+
+The first run on this model drilled the **200 oldest** differing days (an earlier version of the tool took the first
+N). The ranking it produced was misleading, as the owner recorded it: average 11 %, minimum 5 %, maximum 2.5 %, which
+would have suggested that only the median really differs. The output of that earlier run is not part of this page, so
+those figures are quoted as recorded and cannot be re-derived here.
+
+The reason is visible in the tables above: the oldest days are the least representative. They have fewer rows (6
+instead of 17 or 18), and the older the days, the less often the average, minimum and maximum differ (in the sampled
+2000s: average 29 %, minimum 5 %, maximum 5 %, against 82 %, 58 % and 47 % in the 2020s).
+
+The tool therefore spreads the drilled sample **evenly from the first to the last differing day** (`--drill-limit 200`;
+the first and the last are always included). The sample of this run spans 2007-01-03 to 2026-10-24: 21 days in the
+2000s, 105 in the 2010s, 74 in the 2020s. The even sample gives the ranking median 84 %, average 68 %, minimum 47 %,
+maximum 28 %, which shows that the other statistics differ too. The report states the sampling in **Not checked**, and
+the wording *sampled days* reminds the reader that the shares are relative to the sample.
+
+Even spacing is a better sample than the oldest days, but it is still a sample of 200 out of 6,479: raise
+`--drill-limit` for a fuller attribution.
+
+## Reproduce
+
+```bash
+data-parity run agg_daily_fuel --a dev --b local
+data-parity report <work dir>/run-<timestamp>     # re-render parity.md from the saved run
+```
+
+The figures of this page come from the `parity.md`, `parity.json` and `p1_A.txt` of that run. The per-year table and
+the chart are computed from `differing_partitions` and from the `part|` lines of pass 1.
