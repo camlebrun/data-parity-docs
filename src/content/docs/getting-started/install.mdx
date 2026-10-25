@@ -1,0 +1,128 @@
+---
+title: "Install"
+description: "data-parity has two parts. Install both on the machine that runs the comparison."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+data-parity has two parts. Install both on the machine that runs the comparison.
+
+| Part | What it is | How you get it |
+|---|---|---|
+| **dbt package** `data_parity` | Macros that run **inside each engine** and print hash aggregates | `packages.yml` + `dbt deps` |
+| **CLI** `data-parity` | Python program that calls dbt on both sides, compares and writes the report | clone + `pip install .` |
+
+## Requirements
+
+- **dbt for each engine.** dbt Fusion or dbt-core for DuckDB and BigQuery; **dbt-core with dbt-trino for Trino**
+  (dbt Fusion has no Trino support). The two sides may use different dbt binaries (`--dbt-a`, `--dbt-b`). The
+  package declares `require-dbt-version: [">=1.2.0", "<3.0.0"]`.
+- **Python 3.9 or newer** for the CLI. There are no third-party Python dependencies
+  (`dependencies = []` in `pyproject.toml`).
+- **Read access** to the tables, nothing else. The normal mode writes nothing to any engine (only the optional
+  [cache](/data-parity-docs/concepts/cache/) writes, and only when you ask).
+- The models must **already be built on both sides** (`dbt run` on each target): the tool reads the relations that
+  dbt materialised, it does not build them.
+
+:::note[What has actually been run]
+The test suites ran on macOS with dbt Fusion 2.0.9, dbt-core 1.12 with dbt-duckdb, and dbt-core with
+dbt-trino 1.10.6 against a Docker Trino. Python 3.9 (the declared minimum) and Windows have not been run.
+See the [support matrix](/data-parity-docs/reference/engine-matrix/).
+:::
+
+## 1. The dbt package
+
+Add it to the `packages.yml` of **each** dbt project that must produce the aggregates:
+
+```yaml title="packages.yml"
+packages:
+  - git: "https://github.com/camlebrun/data-parity"
+    subdirectory: dbt_package
+    revision: <tag-or-commit-sha>
+```
+
+Then:
+
+```bash
+dbt deps
+```
+
+:::tip[Pin the revision]
+Without `revision:`, dbt follows the default branch and a `dbt deps` can silently change the hash definition
+between your two sides. Both sides must run **the same version** of the package: pin a commit SHA (or a tag
+once releases exist) in both projects. A changed hash definition makes every comparison meaningless until both
+sides are updated.
+:::
+
+## 2. The command line
+
+<Tabs syncKey="shell">
+<TabItem label="macOS / Linux">
+
+
+```bash
+git clone https://github.com/camlebrun/data-parity
+cd data-parity
+pip install .
+data-parity help
+```
+
+</TabItem>
+<TabItem label="PowerShell">
+
+
+```powershell
+git clone https://github.com/camlebrun/data-parity
+cd data-parity
+pip install .
+data-parity help
+```
+
+Never run on Windows. See [Windows and PowerShell](/data-parity-docs/guides/windows/).
+
+</TabItem>
+</Tabs>
+
+Use a virtual environment if you prefer: `python -m venv .venv`, activate it, then `pip install .`.
+
+:::caution[Not on PyPI]
+`pip install data-parity` and `pipx install data-parity` do **not** work: the package is not published.
+`pipx install git+https://github.com/camlebrun/data-parity` follows the same `pyproject.toml` as
+`pip install .` and should work now that the repository is public, but **that form was not tested** for this documentation. The same goes for a `packages.yml` git entry fetched from the public repository: the `dbt deps` step was not re-run against it here.
+:::
+
+### Without installing anything
+
+The CLI is a plain Python package under `src/`. Put `src` on the Python path and call the module:
+
+<Tabs syncKey="shell">
+<TabItem label="macOS / Linux">
+
+
+```bash
+PYTHONPATH=/path/to/data-parity/src python -m data_parity help
+```
+
+</TabItem>
+<TabItem label="PowerShell">
+
+
+```powershell
+$env:PYTHONPATH = "C:\path\to\data-parity\src"; python -m data_parity help
+```
+
+</TabItem>
+</Tabs>
+
+### Check the install
+
+```console
+$ data-parity --version
+data-parity 0.1.0
+```
+
+`data-parity help` prints the full usage; every option is documented in the [CLI reference](/data-parity-docs/reference/cli/).
+
+## Next
+
+[Quickstart](/data-parity-docs/getting-started/quickstart/): run the conformance check and your first comparison.

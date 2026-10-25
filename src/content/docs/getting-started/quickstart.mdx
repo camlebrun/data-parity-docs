@@ -1,0 +1,158 @@
+---
+title: "Quickstart"
+description: "From zero to a first verdict. Outputs below are real, produced on the repository's test bed: two DuckDB files standing for two engines (engine_a is the reference, engine_b carries..."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+From zero to a first verdict. Outputs below are real, produced on the repository's test bed: two DuckDB files
+standing for two engines (`engine_a` is the reference, `engine_b` carries deliberate corruptions).
+
+## Before you start
+
+1. The [dbt package and the CLI](/data-parity-docs/getting-started/install/) are installed.
+2. Two dbt **targets** exist in your `profiles.yml`, one per engine (here `engine_a` and `engine_b`; in a real
+   migration, for example `dev` for BigQuery and `local` for DuckDB).
+3. The models are **built on both sides** (`dbt run --target <each>`).
+4. The models you want to compare are [tagged and configured](/data-parity-docs/guides/configure-models/):
+
+    ```yaml title="models/_models.yml"
+    models:
+      - name: orders
+        config:
+          tags: [data_parity]
+          event_time: order_date   # partition column, if you do not set meta.data_parity.partition_column
+        columns:
+          - name: order_id
+            data_tests: [unique]   # a primary key can be inferred from a unique test
+    ```
+
+    With dbt Fusion, `tags` and `meta` go under `config:`, otherwise they are ignored.
+
+Run the commands from the dbt project directory, or pass `--project DIR`. You can store the two targets once in a
+`./.data-parity.env` file (keys `A`, `B` and `PROJECT_B` only; the file is parsed, never executed):
+
+```text title=".data-parity.env"
+A=engine_a
+B=engine_b
+```
+
+## Step 1: check that the hash is portable
+
+Always do this first on a **new pair of engines**.
+
+```console
+$ data-parity conformance --a engine_a --b engine_b
+IDENTICAL: the hash is portable between engine_a and engine_b (79 rows)
+```
+
+Each engine builds the same 79 synthetic rows inline (8 typed columns, no table read or written), hashes them, and
+the two outputs are compared. Exit code `0`. If it prints `DIFFERENT: the hash is NOT identical ...` (exit `1`),
+stop: the hash cannot be compared on this pair of engines. See
+[Validating the hash on a new engine](/data-parity-docs/contributing/new-engine/).
+
+## Step 2: compare one model
+
+```console
+$ data-parity run orders --a engine_a --b engine_b
+data-parity: pass 1 (one grouped scan per side)
+data-parity: pass 2 (buckets of the differing partitions: orders)
+data-parity: pass 3 (columns of the buckets with equal rows but different hashes: orders)
+orders                   DIFF
+  rows        : engine_a = 200,000, engine_b = 199,998 (delta -2)
+  partitions  : 5 of 120 differ (2025-01-11 -> 2025-03-02)
+  nature      : 2 with missing/extra rows, 3 with changed values only
+  columns     : amount (1), price_float (1), status (1)  [partitions with changed values: 3]
+
+RESULT: DIFFERENCES: 1 of 1 model differs
+report: <work dir>/run-20261025-231423/parity.md
+```
+
+The progress lines go to stderr, the summary to stdout. The report path is the last line; the default location is
+a fresh `run-<timestamp>` folder under the system temporary directory (`--out DIR` and `--report FILE` change it).
+The exit code is `1` here. `identical` is `0`, any failure is `2`: see [Exit codes](/data-parity-docs/reference/exit-codes/).
+
+Read the Markdown report with [Reading the report](/data-parity-docs/getting-started/reading-the-report/).
+
+## Step 3: compare everything
+
+```bash
+data-parity run --a engine_a --b engine_b
+```
+
+With no model name, every model tagged `data_parity` is compared.
+
+:::caution[Cost on large tables]
+Pass 1 is one grouped scan that reads every hashed column of every row, once per engine. On a multi-TB
+BigQuery table that is the whole bill. Bound it with `--last N` and `--as-of`
+([Scope and cost control](/data-parity-docs/guides/scope-and-cost/)), or use the
+[closed-partition cache](/data-parity-docs/concepts/cache/).
+:::
+
+## Without the CLI: the manual dbt flow
+
+The CLI only automates this. You can run the macro yourself on each engine and diff the outputs.
+
+:::danger[The false pass]
+If dbt fails (wrong target, package not installed, an error in a model), the output file is **empty**. Two
+empty files are byte-identical, so a plain `diff a.txt b.txt` says **identical**. Always check dbt's exit code
+**and** that the extracted file is not empty.
+:::
+
+<Tabs syncKey="shell">
+<TabItem label="macOS / Linux">
+
+
+```bash
+for t in a b; do
+  dbt run-operation data_parity_reconcile --target "$t" --args '{only: [orders], level: 1}' > "$t.log" 2>&1 \
+    || { echo "dbt failed on $t"; exit 1; }
+  sed -n 's/.*PARITY|//p' "$t.log" > "$t.txt"
+  [ -s "$t.txt" ] || { echo "no PARITY output on $t"; exit 1; }
+done
+diff a.txt b.txt && echo IDENTICAL
+```
+
+</TabItem>
+<TabItem label="PowerShell">
+
+
+```powershell
+foreach ($t in 'a', 'b') {
+  dbt run-operation data_parity_reconcile --target $t --args '{only: [orders], level: 1}' *> "$t.log"
+  if ($LASTEXITCODE -ne 0) { throw "dbt failed on $t" }
+  Select-String -Path "$t.log" -Pattern 'PARITY\|(.*)$' |
+    ForEach-Object { $_.Matches[0].Groups[1].Value } | Set-Content "$t.txt"
+  if (-not (Test-Path "$t.txt") -or (Get-Item "$t.txt").Length -eq 0) { throw "no PARITY output on $t" }
+}
+if (Compare-Object (Get-Content a.txt) (Get-Content b.txt)) { "DIFFERENT" } else { "IDENTICAL" }
+```
+
+The PowerShell snippet was **never run** (no PowerShell on the machine used to write this documentation).
+On Windows PowerShell 5.1, `*>` writes UTF-16: stay in PowerShell for the whole flow. If dbt receives the
+`--args` quotes wrongly, use the CLI, which does not go through any shell.
+
+</TabItem>
+</Tabs>
+
+On the test bed, this bash flow exits at the `diff` with these first lines of difference (`>` is engine B):
+
+```diff
+4c4
+< table|rows=200000|h1=1678465531614|h2=1680474608768
+---
+> table|rows=199998|h1=1678409242165|h2=1680439312525
+15c15
+< part|2025-01-11|rows=1667|h1=13780073098|h2=14154973472
+---
+> part|2025-01-11|rows=1664|h1=13760716770|h2=14129202516
+```
+
+(Here `a` and `b` are the two dbt targets; the test bed's are named `engine_a` and `engine_b`.) The manual flow
+stops at pass 1: drilling to buckets and columns is what the CLI adds. Each macro argument is described in the
+[macros reference](/data-parity-docs/reference/macros/).
+
+## Next
+
+- [Reading the report](/data-parity-docs/getting-started/reading-the-report/)
+- [How it works](/data-parity-docs/concepts/how-it-works/)
