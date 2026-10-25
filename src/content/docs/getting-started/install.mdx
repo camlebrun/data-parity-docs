@@ -1,6 +1,6 @@
 ---
 title: "Install"
-description: "data-parity has two parts. Install both on the machine that runs the comparison."
+description: "How to install the data_parity dbt package and the data-parity command line from the public GitHub repository."
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -10,7 +10,7 @@ data-parity has two parts. Install both on the machine that runs the comparison.
 | Part | What it is | How you get it |
 |---|---|---|
 | **dbt package** `data_parity` | Macros that run **inside each engine** and print hash aggregates | `packages.yml` + `dbt deps` |
-| **CLI** `data-parity` | Python program that calls dbt on both sides, compares and writes the report | clone + `pip install .` |
+| **CLI** `data-parity` | Python program that calls dbt on both sides, compares and writes the report | `pip install "git+https://..."`, `uv run`, or clone + `pip install .` |
 
 ## Requirements
 
@@ -47,6 +47,11 @@ Then:
 dbt deps
 ```
 
+Verified for this documentation: with dbt Fusion 2.0.9, a copy of the test bed whose `packages.yml` held only the
+`git:` entry above plus `subdirectory: dbt_package` (once without `revision`, once with `revision: main`) ran
+`dbt deps` successfully ("Installed data_parity from 32c4b73...") and `dbt run --target engine_a` built the 3 models.
+dbt-core was not tried for this form.
+
 :::tip[Pin the revision]
 Without `revision:`, dbt follows the default branch and a `dbt deps` can silently change the hash definition
 between your two sides. Both sides must run **the same version** of the package: pin a commit SHA (or a tag
@@ -59,6 +64,23 @@ sides are updated.
 <Tabs syncKey="shell">
 <TabItem label="macOS / Linux">
 
+
+Straight from the public repository, in a virtual environment (verified: Python 3.14, `pip install` then
+`data-parity --version` printed `data-parity 0.1.0`):
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install "git+https://github.com/camlebrun/data-parity"
+.venv/bin/data-parity --version
+```
+
+Or run it without installing anything permanent, with [uv](https://docs.astral.sh/uv/) (verified with uv 0.11.13):
+
+```bash
+uv run --no-project --with "git+https://github.com/camlebrun/data-parity" data-parity --version
+```
+
+Or from a clone:
 
 ```bash
 git clone https://github.com/camlebrun/data-parity
@@ -78,17 +100,15 @@ pip install .
 data-parity help
 ```
 
-Never run on Windows. See [Windows and PowerShell](/data-parity-docs/guides/windows/).
+Not tested on Windows: these PowerShell snippets have never been run. See [Windows and PowerShell](/data-parity-docs/guides/windows/).
 
 </TabItem>
 </Tabs>
 
-Use a virtual environment if you prefer: `python -m venv .venv`, activate it, then `pip install .`.
-
 :::caution[Not on PyPI]
-`pip install data-parity` and `pipx install data-parity` do **not** work: the package is not published.
-`pipx install git+https://github.com/camlebrun/data-parity` follows the same `pyproject.toml` as
-`pip install .` and should work now that the repository is public, but **that form was not tested** for this documentation. The same goes for a `packages.yml` git entry fetched from the public repository: the `dbt deps` step was not re-run against it here.
+`pip install data-parity` and `pipx install data-parity` do **not** work: the package is not published on PyPI.
+Install from the GitHub repository as shown above. The `pipx install git+https://github.com/camlebrun/data-parity` form
+was not tried (it uses the same `pyproject.toml` as the verified `pip` form).
 :::
 
 ### Without installing anything

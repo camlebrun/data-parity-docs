@@ -1,6 +1,6 @@
 ---
 title: "The closed-partition cache"
-description: "Pass 1 scans every row once. On a multi-TB table that is the whole cost."
+description: "The optional, manual cache of closed-partition fingerprints that avoids rescanning old partitions, and the limits of its testing."
 ---
 
 Pass 1 scans every row once. On a multi-TB table that is the whole cost. A **closed** partition (older than a lag,

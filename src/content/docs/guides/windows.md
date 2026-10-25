@@ -1,6 +1,6 @@
 ---
 title: "Windows and PowerShell"
-description: "The tool uses no shell and was designed to behave identically on Windows, but it has never been executed on Windows or in PowerShell."
+description: "Windows and PowerShell notes for data-parity, which is shell-free by design but has never been run on Windows."
 ---
 
 :::danger[Never run on Windows]

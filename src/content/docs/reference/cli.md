@@ -1,6 +1,6 @@
 ---
 title: "CLI reference"
-description: "data-parity <command> [options]. Four commands: run, report, conformance, help. The help texts below are the real output of the tool (version 0.1.0)."
+description: "Every command and option of the data-parity command line (run, report, conformance, help), with the real help output of version 0.1.0."
 ---
 
 `data-parity <command> [options]`. Four commands: `run`, `report`, `conformance`, `help`. The help texts below are the
@@ -98,66 +98,48 @@ options:
   --json FILE           machine-readable result path
 ```
 
-### Selecting what to compare
+### Options of `run`
 
-- `MODEL ...`: Names of dbt models, space or comma separated. Default: every model tagged `data_parity`. An unknown or untagged name
-  is an error (exit `2`).
+**Selecting what to compare**
 
-    ```bash
-    data-parity run orders customers --a dev --b local
-    data-parity run orders,customers --a dev --b local     # same
-    ```
+| Option | Default | Meaning |
+|---|---|---|
+| `MODEL ...` | every model tagged `data_parity` | dbt model names, space or comma separated. An unknown or untagged name is an error (exit `2`). |
+| `--a TARGET`, `--b TARGET` | none (required, unless `A=` and `B=` are in `./.data-parity.env`) | dbt targets of side A and side B, names from `profiles.yml`. They also label the two sides in the report. |
+| `--project DIR` | current directory | dbt project directory. It must contain a `dbt_project.yml`; dbt is run with it as working directory. |
+| `--project-b DIR` | same as `--project` | Project directory of side B, if it lives in another project. |
+| `--dbt-a BIN`, `--dbt-b BIN` | `dbt` | dbt binary of each side, resolved with `PATH` (and `PATHEXT` on Windows) or given as a file path. Use it to mix dbt Fusion and dbt-core, which Trino requires (dbt-core only). |
+| `--profiles-dir-a DIR`, `--profiles-dir-b DIR` | dbt default | Passed to dbt as `--profiles-dir` for that side. |
 
-- `--a TARGET`, `--b TARGET`: dbt targets of side A and side B (names from `profiles.yml`). Required, unless `A=` and `B=` are in
-  `./.data-parity.env`. They also label the two sides in the report.
+```bash
+data-parity run orders customers --a dev --b local
+data-parity run orders,customers --a dev --b local     # same
+data-parity run --a duck --b trino --project . --project-b ./trino_project
+```
 
-- `--project DIR`, `--project-b DIR`: dbt project directory (default: the current directory) and, if side B lives in another project, its directory
-  (default: the same as `--project`). Each must contain a `dbt_project.yml`; dbt is run with that directory as its
-  working directory.
+**Bounding the scan** (see [Scope and cost control](/data-parity-docs/guides/scope-and-cost/))
 
-    ```bash
-    data-parity run --a duck --b trino --project . --project-b ./trino_project
-    ```
+| Option | Default | Meaning |
+|---|---|---|
+| `--last N` | all partitions | Only the N latest partitions of each model. If nothing differs the verdict is *ISO on the checked scope*. |
+| `--as-of YYYY-MM-DD` | none | Exclude partitions on or after this date, and NULL partitions. |
+| `--drill-limit N` | `200` | Maximum differing partitions drilled to buckets and columns, per model. Above it, the drilled partitions are an evenly spread sample from the first to the last differing one. |
+| `--buckets N` | `256` | Hash buckets per partition. The same value is used on both sides. |
 
-- `--dbt-a BIN`, `--dbt-b BIN`: The dbt binary of each side (default `dbt`). Resolved with `PATH` (and `PATHEXT` on Windows) or as a file path.
-  Use it to mix dbt Fusion and dbt-core, which is required for Trino (dbt-core only).
+```bash
+data-parity run orders --a dev --b local --last 30
+data-parity run orders --a dev --b local --as-of 2026-10-01
+```
 
-- `--profiles-dir-a DIR`, `--profiles-dir-b DIR`: Passed to dbt as `--profiles-dir` for that side.
+**Output**
 
-### Bounding the scan
-
-- `--last N`: Only the N latest partitions of each model. The verdict becomes *ISO on the checked scope* if nothing differs.
-
-    ```bash
-    data-parity run orders --a dev --b local --last 30
-    ```
-
-- `--as-of YYYY-MM-DD`: Exclude partitions on or after this date (and NULL partitions).
-
-    ```bash
-    data-parity run orders --a dev --b local --as-of 2026-10-01
-    ```
-
-- `--drill-limit N` (default 200): Maximum differing partitions drilled to buckets and columns, per model. Above it the drilled partitions are an
-  evenly spread sample from the first to the last differing one.
-
-- `--buckets N` (default 256): Hash buckets per partition. The same value is used on both sides.
-
-See [Scope and cost control](/data-parity-docs/guides/scope-and-cost/).
-
-### Output
-
-- `--out DIR`: Work directory (default: `<system temp dir>/data-parity/<project name>`). A **fresh** `run-<timestamp>` sub-directory
-  is created inside it (`-2`, `-3`... if it exists); nothing already there is touched. It contains `parity.md`,
-  `parity.json`, the raw pass outputs `p1_A.txt`, `p1_B.txt`, `p2_*.txt`, `p3_*.txt`, and `raw_*.log` for any failed
-  dbt call.
-
-- `--report FILE`: Where to write the Markdown report (default: `<run dir>/parity.md`).
-
-- `--json FILE`: Where to write `parity.json` (default: `<run dir>/parity.json`). When you give `--json`, no copy stays in the run
-  directory. Note that `data-parity report` needs `parity.json` in the run directory.
-
-- `--detail N|all` (default and maximum 15): Partitions listed inline in the report. The complete list is always in `parity.json`.
+| Option | Default | Meaning |
+|---|---|---|
+| `--out DIR` | `<system temp dir>/data-parity/<project name>` | Work directory. A **fresh** `run-<timestamp>` sub-directory is created inside it (`-2`, `-3`... if it exists); nothing already there is touched. It holds `parity.md`, `parity.json`, the raw pass outputs `p1_A.txt`, `p1_B.txt`, `p2_*.txt`, `p3_*.txt`, and `raw_*.log` for any failed dbt call. |
+| `--report FILE` | `<run dir>/parity.md` | Where to write the Markdown report. |
+| `--json FILE` | `<run dir>/parity.json` | Where to write `parity.json`. With `--json`, no copy stays in the run directory, and `data-parity report` needs `parity.json` there. |
+| `--detail N` or `--detail all` | `15` (also the maximum) | Partitions listed inline in the report. The complete list is always in `parity.json`. |
+| `-h`, `--help` | | Show the help of the command and exit. |
 
 ### Defaults file
 
@@ -187,6 +169,11 @@ options:
   --out FILE  Markdown report path (default: RUN_DIR/parity.md)
 ```
 
+| Argument or option | Default | Meaning |
+|---|---|---|
+| `RUN_DIR` | required | A run directory (`parity.json`, `p1_A.txt`, `p1_B.txt`...). |
+| `--out FILE` | `RUN_DIR/parity.md` | Markdown report path. |
+
 ```console
 $ data-parity report <work dir>/run-20261025-231011
 report: <work dir>/run-20261025-231011/parity.md
@@ -201,7 +188,7 @@ regenerated text *spread evenly* is then inexact. Only a new run gives a true ev
 
 Checks that the row hash is portable between the two engines, on 79 synthetic rows built inline (8 typed columns; no
 table is read or created). Run it first on any new pair of engines. It accepts the common options of `run`
-(`--a`, `--b`, `--dbt-a`, `--dbt-b`, `--project`, `--project-b`, `--profiles-dir-a`, `--profiles-dir-b`, `--out`).
+(`--a`, `--b`, `--dbt-a`, `--dbt-b`, `--project`, `--project-b`, `--profiles-dir-a`, `--profiles-dir-b`, `--out`; same meaning and defaults as in the tables above).
 
 ```text
 usage: data-parity conformance [-h] [--a TARGET] [--b TARGET] [--dbt-a BIN]

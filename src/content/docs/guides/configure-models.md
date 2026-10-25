@@ -1,6 +1,6 @@
 ---
 title: "Configure your models"
-description: "A model takes part in the comparison if it is tagged data_parity or carries a meta.data_parity block."
+description: "How to select models for the comparison with the data_parity tag or a meta.data_parity block, and how to set the partition column, primary key and excluded columns."
 ---
 
 A model takes part in the comparison if it is **tagged `data_parity`** or carries a `meta.data_parity` block.

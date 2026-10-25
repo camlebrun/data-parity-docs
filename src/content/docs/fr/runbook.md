@@ -1,6 +1,6 @@
 ---
 title: "Runbook : prouver qu'une table est identique sur deux moteurs avec data-parity"
-description: "> Page en français : le runbook d'origine, repris tel quel. La documentation de référence (anglais) est le reste du site : démarrage, référence CLI, dépannage."
+description: "Runbook en français : prouver qu'une table dbt est identique sur deux moteurs avec data-parity, de l'installation à la lecture du rapport."
 ---
 
 > Page en français : le runbook d'origine, repris tel quel. La documentation de référence (anglais) est le reste du site : [démarrage](/data-parity-docs/getting-started/quickstart/), [référence CLI](/data-parity-docs/reference/cli/), [dépannage](/data-parity-docs/guides/troubleshooting/). En cas d'écart, le code et la documentation anglaise font foi.
@@ -311,12 +311,12 @@ Les messages sont ceux de l'outil et des macros. Tout échec de l'outil sort ave
 | `partition column X has type class '...'; supported: date, timestamp, integer, string` | type de partition non géré |
 | `malformed PARITY line (...)` | sortie dbt altérée ; vérifier la version de l'outil et du package, relancer, garder le dossier `run-...` |
 | `data-parity: .data-parity.env: key X ignored (only A, B and PROJECT_B are read)` | avertissement : seules ces trois clés sont lues (jamais un binaire à exécuter) |
-| Les lignes `cols\|` diffèrent / « structure » dans le rapport | colonnes ou types logiques différents entre A et B ; les passages suivants sont sautés (hash non comparables) |
+| Les lignes `cols` diffèrent / « structure » dans le rapport | colonnes ou types logiques différents entre A et B ; les passages suivants sont sautés (hash non comparables) |
 | `DIFFERENT: the hash is NOT identical between A and B` (conformance) | ne pas continuer ; lire [la spécification de la forme canonique](/data-parity-docs/concepts/row-hash/) ; vérifier les versions des moteurs |
 | `incomplete conformance output: N rows on side A, M on side B` / `conformance run failed: ...` | un côté n'a pas rendu les 79 lignes : voir les dernières lignes dbt affichées |
 | DuckDB : fichier introuvable ou verrouillé | les chemins DuckDB sont relatifs au dossier courant : `--project` ; fermer les autres connexions à la base |
 | `data_parity cache: no cache schema. Pass schema: <name> or set var data_parity_cache_schema` | voulu : aucun schéma par défaut |
-| `VERIFY\|STALE\|...` | une partition fermée a été réécrite : supprimer ses lignes du cache et `refresh`, ou monter `data_parity_cache_version` |
+| Ligne `VERIFY` avec le statut `STALE` | une partition fermée a été réécrite : supprimer ses lignes du cache et `refresh`, ou monter `data_parity_cache_version` |
 | Une macro du projet racine n'arrive pas à appeler une macro du package (constaté dans le banc de test) | ne pas en dépendre : lancer les macros du package par `run-operation`, ou copier la macro dans le package |
 | Coût BigQuery élevé | modèle précis, `--last N` / `--as-of`, partition DATE (pour l'élagage), puis cache |
 

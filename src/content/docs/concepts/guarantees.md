@@ -1,6 +1,6 @@
 ---
 title: "What is guaranteed and what is not"
-description: "An \"identical\" verdict from data-parity is precise and narrow. This page states exactly what it covers."
+description: "What an identical verdict from data-parity does and does not prove, and the known cross-engine non-equalities."
 ---
 
 An "identical" verdict from data-parity is precise and narrow. This page states exactly what it covers.

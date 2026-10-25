@@ -1,6 +1,6 @@
 ---
 title: "dbt macros and arguments"
-description: "The data_parity package (dbt_package/, require-dbt-version: [\">=1.2.0\", \"<3.0.0\"]) exposes six entry points, all run with dbt run-operation <macro> --args '{...}'."
+description: "The six entry points of the data_parity dbt package, their arguments and the output lines they print."
 ---
 
 The `data_parity` package (`dbt_package/`, `require-dbt-version: [">=1.2.0", "<3.0.0"]`) exposes six entry points,
@@ -38,7 +38,7 @@ All arguments are optional.
 | `drill_buckets` | `{model: [[partition, bucket], ...]}` | none | **Pass 3**: per-column sums of these buckets. A bucket `*` means the whole partition (models without a primary key). |
 | `buckets` | integer ≥ 1 | `256` | Number of buckets. **Must be identical on both sides.** |
 | `as_of` | `'YYYY-MM-DD'` (or integer) | none | Exclude rows whose partition value is `>=` this value, and NULL partitions. Needs a date, timestamp or integer partition column. Ignored (with a note) on a model without a partition column. |
-| `partitions` | `{last: N}` or a non-empty list | none | Scope pass 1 and the `table` line to the N latest non-NULL partitions, or to an explicit list. Prints a `scope\|` line. Any other shape, or a selection of 0 partitions on a non-empty table, is a compile error. |
+| `partitions` | `{last: N}` or a non-empty list | none | Scope pass 1 and the `table` line to the N latest non-NULL partitions, or to an explicit list. Prints a `scope` line. Any other shape, or a selection of 0 partitions on a non-empty table, is a compile error. |
 
 `as_of` is applied before `partitions: {last: N}`.
 
@@ -60,19 +60,33 @@ table|rows=200000|h1=1678465531614|h2=1680474608768
 part|2025-01-01|rows=1666|h1=14093667896|h2=14128447316
 ```
 
-| Line | Pass | Meaning |
+The line formats (fields are separated by `|`):
+
+```text
+## <model>
+cols|<name>:<type_class>,...
+pk|<cols>                  (or pk|none)
+as_of|<v>   scope|...   note|...
+table|rows=|h1=|h2=
+part|<p>|rows=|h1=|h2=
+buckets|<N>
+bucket|<p>|<b>|rows=|h1=|h2=
+col|<p>|<b>|<column>|rows=|h1=|h2=
+```
+
+| Line type | Pass | Meaning |
 |---|---|---|
 | `## <model>` | | Starts a model. |
-| `cols\|<name>:<type_class>,...` | | Column names and type classes. Differs between sides when the structure differs. |
-| `pk\|<cols>` or `pk\|none` | | Primary key used. |
-| `as_of\|<v>`, `scope\|...`, `note\|...` | | Scope information. |
-| `table\|rows=\|h1=\|h2=` | 1 | The sum of the partition lines. |
-| `part\|<p>\|rows=\|h1=\|h2=` | 1 | One line per partition. With no partition column, only `table`. |
-| `buckets\|<N>` | 2/3 | Printed before the first `bucket` or `col` line. |
-| `bucket\|<p>\|<b>\|rows=\|h1=\|h2=` | 2 | Aggregates per (partition, bucket). |
-| `col\|<p>\|<b>\|<column>\|rows=\|h1=\|h2=` | 3 | Aggregates of the hash of key + that column. |
+| `cols` | | Column names and type classes. Differs between sides when the structure differs. |
+| `pk` | | Primary key used (`none` when there is no key). |
+| `as_of`, `scope`, `note` | | Scope information. |
+| `table` | 1 | The sum of the partition lines. |
+| `part` | 1 | One line per partition. With no partition column, only `table`. |
+| `buckets` | 2/3 | Printed before the first `bucket` or `col` line. |
+| `bucket` | 2 | Aggregates per (partition, bucket). |
+| `col` | 3 | Aggregates of the hash of key + that column. |
 
-`NOTE|<model>|excluded=<columns>` (not a `PARITY|` line) lists the excluded columns; the CLI reads it for the
+The line `NOTE|<model>|excluded=<columns>` (not a `PARITY|` line) lists the excluded columns; the CLI reads it for the
 **Not checked** section.
 
 ## `data_parity_conformance`

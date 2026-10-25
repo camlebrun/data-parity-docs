@@ -1,6 +1,6 @@
 ---
 title: "The row hash and canonical form"
-description: "Two engines can only agree on a hash if they agree on the text that is hashed."
+description: "How each value is turned into a canonical text and hashed so that BigQuery, DuckDB and Trino produce the same row hash."
 ---
 
 Two engines can only agree on a hash if they agree on the text that is hashed. The same `DECIMAL` or `TIMESTAMP`
@@ -11,7 +11,7 @@ whole row is assembled and hashed. The rules live in `dbt_package/macros/canonic
 :::note[Validation]
 The 79-row `data_parity_conformance` set gives byte-identical `PARITY|` output on DuckDB (dbt Fusion 2.0.9 and
 dbt-core), BigQuery (dbt Fusion) and Trino 484 (dbt-core with dbt-trino 1.10.6, Docker, `memory` catalog).
-Not tested: a real Trino cluster, and BigQuery through the reconcile and cache macros (conformance only).
+Not tested: a real Trino cluster, and BigQuery through the automated reconcile and cache suites (inline conformance and one manual `data-parity run` only; the cache `bigquery__` code was never run).
 :::
 
 ## Canonical text per type

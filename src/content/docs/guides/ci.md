@@ -1,6 +1,6 @@
 ---
 title: "Use in CI"
-description: "data-parity is a command-line tool with stable exit codes, so it fits a pipeline step."
+description: "How to run data-parity as a pipeline step, using its stable exit codes and the parity.json output."
 ---
 
 data-parity is a command-line tool with stable exit codes, so it fits a pipeline step.
@@ -62,7 +62,7 @@ Notes:
 - `--report` and `--json` write exactly where you ask; `--out` is the work directory in which a fresh
   `run-<timestamp>` folder is created (raw dbt logs are kept there for a failing dbt call).
 - Use a service account with read access only. The normal mode writes nothing.
-- The `git+https` install form is the same as [Install](/data-parity-docs/getting-started/install/): it was **not tested**, and
-  requires the CLI to be on the referenced revision.
+- The `git+https` install form is the one verified on the [Install](/data-parity-docs/getting-started/install/) page (a plain
+  `pip install` of the default branch, in a virtual environment on a laptop). The `@<tag-or-commit>` suffix and a CI runner were not tried here.
 - The report is safe to upload as an artifact in the sense that it holds only counts, hash sums, partition values,
   bucket numbers and column names. If your partition values are sensitive, treat it accordingly.

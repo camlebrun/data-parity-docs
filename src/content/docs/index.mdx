@@ -1,6 +1,6 @@
 ---
 title: data-parity
-description: Prove that two tables are identical across engines, without moving data.
+description: "Prove that a dbt model is identical on two engines (BigQuery, DuckDB, Trino) by comparing hash aggregates, without moving any row."
 template: splash
 hero:
   tagline: Prove two tables are identical across engines, without moving data.
@@ -21,7 +21,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
     Each engine prints a row count and two hash sums per group. No row, key or business value is exported.
   </Card>
   <Card title="Portable row hash" icon="approve-check">
-    Validated by the conformance test on DuckDB, BigQuery and Trino (BigQuery by the inline test only).
+    Byte-identical on DuckDB, BigQuery and Trino in the conformance test (BigQuery: inline test and one manual run, no automated suite).
   </Card>
   <Card title="Drill-down" icon="magnifier">
     Partition, then bucket, then column: it names the partitions, buckets and columns that differ.
@@ -63,7 +63,7 @@ Python dependency) that calls dbt on both sides, compares, drills down and write
 ## Three commands
 
 ```bash
-pip install .                                    # from a clone of the repository (git-URL install: not tested here)
+pip install "git+https://github.com/camlebrun/data-parity"   # not on PyPI
 data-parity conformance --a dev --b local        # is the hash portable between these two engines?
 data-parity run my_model --a dev --b local       # compare, drill down, write parity.md
 ```
@@ -98,10 +98,11 @@ the exact differing partitions: see [Reading the report](/data-parity-docs/getti
 ## Status and limits
 
 :::caution[Read this before relying on it]
-- **Early software.** Version 0.1.0, not published on PyPI. Install from a clone of the repository.
-- **BigQuery** is validated by the inline [conformance](/data-parity-docs/contributing/new-engine/) test only. The reconcile
-  and cache macros have run on DuckDB and on a Docker Trino, never on BigQuery by the test suites. The
-  cache writes on BigQuery are untested.
+- **Early software.** Version 0.1.0, not published on PyPI. Install from the public GitHub repository (`pip install "git+https://github.com/camlebrun/data-parity"` was run successfully).
+- **BigQuery**: the inline [conformance](/data-parity-docs/contributing/new-engine/) test (byte-identical to DuckDB and Trino)
+  plus one real manual run of `data-parity run` with a BigQuery table as side A against a DuckDB table, read-only. No
+  automated test of the repository covers BigQuery. The cache `bigquery__` code was never run, and cache writes on
+  BigQuery are untested.
 - **Trino** was tested on one Docker container (Trino 484, `memory` catalog), never on a real cluster.
 - **dbt Fusion has no Trino support**; Trino needs dbt-core and dbt-trino.
 - **Windows / PowerShell** commands have never been run. Python 3.9 is the declared minimum and has not been run.
