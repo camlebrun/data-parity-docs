@@ -27,6 +27,7 @@ The full table is the [engine support matrix](/data-parity-docs/reference/engine
     --project-b ./trino_project --profiles-dir-b ./trino_project
   ```
 
+- Side B of a BigQuery repo can be read in place with `--schema-b <catalog>.<schema>`.
 - Tested only on **one Docker container** (Trino 484, `memory` catalog, dbt-trino 1.10.6). **A real cluster has not
   been tested.** Authentication methods other than the container's `none` are untested.
 - The `memory` connector has no row `DELETE`, which is why the [cache](/data-parity-docs/concepts/cache/) is append-only by default.
@@ -38,10 +39,14 @@ The full table is the [engine support matrix](/data-parity-docs/reference/engine
 
 ## BigQuery
 
-- Validated by the **inline conformance test only**: the 79 synthetic rows hash identically to DuckDB and to Trino.
-- One real manual run of `data-parity run` was done with a BigQuery table as side A against a DuckDB table, read-only (see the
-  [example](/data-parity-docs/example/agg-daily-fuel/)). **No automated test of the repository covers BigQuery.** The cache
-  `bigquery__` code was never run, and cache writes on BigQuery are untested.
+- The 79 synthetic rows of the inline conformance test hash identically to DuckDB and to Trino.
+- `integration_tests/test_bq_trino.sh` runs a **real BigQuery dataset** (prod-shaped tables, `MONTH` partitions, clustering)
+  against Trino: conformance identical, iso on the same data, exactly the expected findings on a corrupted copy (see
+  [Test bed](/data-parity-docs/contributing/test-bed/#real-bigquery-vs-trino)). It needs a GCP project, so it is not part of CI.
+  An earlier manual run against DuckDB is in the [example](/data-parity-docs/example/agg-daily-fuel/).
+- The cache `bigquery__` code was never run, and cache writes on BigQuery are untested.
+- To compare a BigQuery repo to legacy Trino tables without writing any Trino-side project, use `--schema-b`
+  ([Single-engine dbt projects](/data-parity-docs/guides/single-engine-projects/)).
 - The cache never creates a BigQuery dataset: it must already exist.
 - Pass 1 bills the bytes of every hashed column. Use a DATE partition column so that partition pruning applies, and
   bound the scope ([Scope and cost control](/data-parity-docs/guides/scope-and-cost/)).
