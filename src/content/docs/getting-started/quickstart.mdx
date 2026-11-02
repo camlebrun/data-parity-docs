@@ -69,7 +69,7 @@ report: <work dir>/run-20261025-231423/parity.md
 ```
 
 The progress lines go to stderr, the summary to stdout. The report path is the last line; the default location is
-a fresh `run-<timestamp>` folder under the system temporary directory (`--out DIR` and `--report FILE` change it).
+a fresh `run-<timestamp>` folder under `./parity_out` in the dbt project (`--out DIR` and `--report FILE` change it; add `parity_out/` to your `.gitignore`).
 The exit code is `1` here. `identical` is `0`, any failure is `2`: see [Exit codes](/data-parity-docs/reference/exit-codes/).
 
 Read the Markdown report with [Reading the report](/data-parity-docs/getting-started/reading-the-report/).
