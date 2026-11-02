@@ -36,8 +36,12 @@ With dbt Fusion, keys placed outside `config:` are ignored and the model silentl
 | `meta.data_parity.exclude_columns` | Columns not compared. Mandatory for unsupported types. | none |
 | `meta.data_parity.exclude_prefixes` | Column-name prefixes not compared. | `meta_` |
 | `meta.data_parity.enabled` | `false` opts the model out. | `true` |
+| `meta.data_parity.compare_as` | Key that matches the model with its counterpart on the other side, when the two are named differently (`orders_dpv` with `compare_as: orders`). Letters, digits, `_` and `-`. | the model name |
 
 Opt a model out with `meta: {data_parity: false}` or `enabled: false`.
+
+Columns can also be left out from the command line (`--exclude-column`, `--exclude-prefix`, `--no-default-exclude`),
+without touching the project: see [Single-engine dbt projects](/data-parity-docs/guides/single-engine-projects/#excluding-columns).
 
 ## What happens in the edge cases
 
@@ -46,8 +50,10 @@ Opt a model out with `meta: {data_parity: false}` or `enabled: false`.
 - **No partition column.** Pass 1 prints only the `table` line (a table-level comparison).
 - **Unsupported column type** (array, struct, map, json, bytes, interval, geography). The run stops with a compile error
   `data_parity: unsupported column type '...'`: add the column to `exclude_columns`.
-- **Different columns or types on the two sides.** The `cols|` lines differ and the report says *structure* differs;
-  the deeper passes are skipped, because the hashes would not be comparable.
+- **Different columns or types on the two sides.** The `cols|` lines differ and the report says *structure* differs
+  (a *schema mismatch* naming the columns of each side, when only the column sets differ); the deeper passes are
+  skipped, because the hashes would not be comparable. Column names are matched lower-cased with every character
+  outside `[a-z0-9_]` turned into `_`.
 - **Excluded columns are never silent.** They appear in the report under **Not checked**.
 
 ## Choosing the targets
@@ -63,7 +69,9 @@ PROJECT_B=../my_other_project
 Only the keys `A`, `B` and `PROJECT_B` are read; any other key prints a warning and is ignored. In particular a
 dbt binary is **never** read from the file: a file checked into a repository must not choose which program runs.
 
-If the two engines live in different dbt projects, give `--project` and `--project-b`. Use `--profiles-dir-a` and
+If the two engines live in different dbt projects, give `--project` and `--project-b`. If one plain dbt repo is compared
+to tables that live elsewhere, give `--schema-b` or `--mapping-b` instead (see
+[Single-engine dbt projects](/data-parity-docs/guides/single-engine-projects/)). Use `--profiles-dir-a` and
 `--profiles-dir-b` when the profiles are not in the default place, and `--dbt-a` / `--dbt-b` when the two sides use
 different dbt binaries (for example Fusion on one, dbt-core on the other).
 

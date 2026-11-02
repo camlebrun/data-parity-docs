@@ -3,8 +3,8 @@ title: "Test bed and test suites"
 description: "The four test suites of the repository, the DuckDB test bed with its known corruptions, and when to run each one."
 ---
 
-Four suites, from fast to complete. Run the first after any change in `src/`, the others after any change in
-`dbt_package/`. None of them touches BigQuery.
+Five suites, from fast to complete (the fifth needs a real BigQuery project and is not part of CI). Run the first after any change in `src/`, the others after any change in
+`dbt_package/`. Only the last one touches BigQuery.
 
 | Suite | Command | Covers |
 |---|---|---|
@@ -12,15 +12,15 @@ Four suites, from fast to complete. Run the first after any change in `src/`, th
 | `test_reconcile.sh` | `sh integration_tests/test_reconcile.sh` | End-to-end CLI against the ground truth; dbt-core and Trino scenarios when `DBT_CORE` / `TRINO=1` are set. |
 | `test_cache.sh` | `bash integration_tests/test_cache.sh` | The closed-partition cache macros. |
 | `test_config_guards.sh` | `bash integration_tests/test_config_guards.sh` | Bad or ambiguous arguments and model configs must fail loudly or be read correctly. |
+| `test_bq_trino.sh` | `BQ_PROJECT=<project> DBT_CORE=<dbt-core> PY=<python> bash integration_tests/test_bq_trino.sh` | A real BigQuery dataset against Trino tables, see [below](#real-bigquery-vs-trino). |
 
-Results when this documentation was written (macOS, dbt Fusion 2.0.9, Python 3.14, DuckDB 1.3.2 to build the data, for this earlier run):
+Results of the last full run (macOS, dbt Fusion 2.0.9, Python 3.14):
 
-- pytest: 55 passed, 2 skipped (the real-dbt tests, `DBT_FUSION` not set);
-- `test_reconcile.sh` (Fusion only, no `DBT_CORE`, no `TRINO`): ALL CHECKS PASSED;
-- `test_cache.sh` (DuckDB, no Trino): 20 passed, 0 failed;
-- `test_config_guards.sh`: 46 passed, 0 failed.
+- pytest: 99 passed, plus 12 integration tests against the real test bed with `DBT_FUSION` set (Fusion and DuckDB), among them the plain single-engine projects;
+- `test_reconcile.sh`: ALL CHECKS PASSED;
+- `test_bq_trino.sh` (real BigQuery, EU): 17 of 17 checks passed.
 
-The Trino and dbt-core scenarios were not re-run for this page.
+`test_cache.sh` and `test_config_guards.sh` were last run on an earlier version (20 and 46 passed) and not re-run for this page; the Trino and dbt-core scenarios of `test_reconcile.sh` neither.
 
 ## The test bed
 
@@ -101,6 +101,29 @@ TRINO=1 PY=<python with duckdb+trino> DBT2=<dbt-core> bash integration_tests/tes
 **`test_config_guards.sh`**: string `exclude_prefixes` / `exclude_columns`, `only` (string, unknown names), `partitions`
 shapes, `cached_pass1` refusing `as_of` / `partitions`, the NULL partition sentinel, the `write` flag, schema and
 `lag_days` validation, `data_parity: false`, and the unsupported `target.type` guard. All in a throw-away copy.
+
+## Real BigQuery vs Trino
+
+`integration_tests/test_bq_trino.sh` checks the shape of a real migration with no emulator: the dbt project of
+`integration_tests/bq_project/` runs on **real BigQuery** (side A) and is compared to Trino tables (side B) read with
+`--schema-b`. Tables are named and typed like a production warehouse (`fct_orders`, `dim_customers`, `fct_events`;
+native DDL with `INT64`, `NUMERIC(18,2)`, `FLOAT64`, `TIMESTAMP`, `BOOL`; `MONTH` partition on `order_date`, clustering).
+The data is the same as above, loaded into a throw-away dataset `mart_parity_test` (EU, expires after one day), and Trino
+holds a reference copy and a corrupted copy.
+
+| Check | Expected |
+|---|---|
+| conformance, BigQuery vs Trino | hash identical |
+| BigQuery vs the reference copy | every model ISO |
+| BigQuery vs the corrupted copy | exactly the 5 days of `fct_orders`, `city` in `dim_customers`, 2025-01-06 in `fct_events`, nothing on `meta_loaded_at` |
+
+Requirements: a GCP project (`BQ_PROJECT`, required: no project id is hard-coded), `gcloud auth application-default
+login`, a dbt-core with both `dbt-bigquery` and `dbt-trino`, and a Trino with a `local` catalog (memory connector). Cost
+is about 0 € (20 MB stored, free loads, reads under 1 GB per run). The script **deletes nothing**: if the dataset exists
+it stops; `REPLACE=1` drops and recreates it, `CLEANUP=1` drops it at the end. It needs a GCP project, so it is not part of CI.
+
+The memory connector has no partitioning or clustering, so the production partition layout cannot be tested on the Trino
+side.
 
 ## Docker Trino
 

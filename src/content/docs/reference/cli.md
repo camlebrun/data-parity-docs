@@ -4,7 +4,8 @@ description: "Every command and option of the data-parity command line (run, rep
 ---
 
 `data-parity <command> [options]`. Four commands: `run`, `report`, `conformance`, `help`. The help texts below are the
-real output of the tool (version 0.1.0).
+real output of the tool (version 0.1.0), including the options for
+[single-engine dbt projects](/data-parity-docs/guides/single-engine-projects/).
 
 Models and options may be interleaved: `data-parity run orders --a x --b y` and `data-parity run --a x orders --b y`
 are the same. Abbreviated option names are **not** accepted.
@@ -31,6 +32,9 @@ common options:
   --project DIR             dbt project directory (default: current directory)
   --project-b DIR           project directory of side B, if different
   --profiles-dir-a/-b DIR   dbt profiles directory per side
+  --schema-a/-b [DB.]SCHEMA table of each model is read in this schema instead of the project's ref()
+  --mapping-a/-b FILE       `model: [db.]schema.table` lines; wins over --schema-a/-b
+  --label-a/-b TEXT         side names in the report (default: the targets)
 
 run options:
   --as-of YYYY-MM-DD        exclude partitions on or after this date (freshness gap is not a content gap)
@@ -38,12 +42,20 @@ run options:
   --buckets N               hash buckets per partition (default 256)
   --drill-limit N           max partitions drilled per model (default 200); above it, the drilled
                             partitions are spread evenly from the first to the last differing one
+  --exclude-column COL      column left out on both sides, or MODEL.COL for one model (repeatable)
+  --exclude-prefix PREFIX   columns starting with PREFIX are left out (repeatable; meta_ always, see below)
+  --no-default-exclude      also compare the meta_ columns
+  --legacy a|b              which side is the legacy one (default b); words models found on one side only
   --detail N                partitions listed inline in the report (default and maximum 15; the
                             complete list is in parity.json)
   --out DIR                 work directory; a fresh run-<timestamp> sub-directory is created inside
+                            (default: ./parity_out in the dbt project, git-ignored there like any output)
   --report FILE             Markdown report path (default: <out>/run-<timestamp>/parity.md);
                             parity.json stays in the run directory
   --json FILE               also write a machine-readable result
+  --no-hint                 leave out the "To inspect" line of each differing model
+  --no-timeline             leave out the per-month table of differing days
+  --technical               also show hash buckets and the method details
 
 report options:
   data-parity report RUN_DIR [--out FILE]   FILE defaults to RUN_DIR/parity.md
@@ -65,9 +77,14 @@ Compares models between two engines: pass 1 on every selected model, then passes
 usage: data-parity run [-h] [--a TARGET] [--b TARGET] [--dbt-a BIN]
                        [--dbt-b BIN] [--project DIR] [--project-b DIR]
                        [--profiles-dir-a DIR] [--profiles-dir-b DIR]
-                       [--out DIR] [--as-of YYYY-MM-DD] [--last N]
-                       [--buckets N] [--drill-limit N] [--detail N|all]
-                       [--report FILE] [--json FILE]
+                       [--schema-a [DB.]SCHEMA] [--schema-b [DB.]SCHEMA]
+                       [--mapping-a FILE] [--mapping-b FILE] [--label-a TEXT]
+                       [--label-b TEXT] [--out DIR] [--as-of YYYY-MM-DD]
+                       [--last N] [--buckets N] [--drill-limit N]
+                       [--detail N|all] [--exclude-column COL|MODEL.COL]
+                       [--exclude-prefix PREFIX] [--no-default-exclude]
+                       [--legacy {a,b}] [--report FILE] [--json FILE]
+                       [--no-hint] [--no-timeline] [--technical]
                        [MODEL ...]
 
 Exit code: 0 identical, 1 differences, 2 error.
@@ -86,6 +103,17 @@ options:
                         --project)
   --profiles-dir-a DIR  dbt profiles directory of side A
   --profiles-dir-b DIR  dbt profiles directory of side B
+  --schema-a [DB.]SCHEMA
+                        read the tables of side A in this schema instead of
+                        the project's own ref() (a mapping entry still wins)
+  --schema-b [DB.]SCHEMA
+                        same for side B (e.g. the legacy Trino schema of a
+                        BigQuery repo)
+  --mapping-a FILE      file `model: [db.]schema.table` giving the table read
+                        on side A (wins over --schema-a)
+  --mapping-b FILE      same for side B
+  --label-a TEXT        name of side A in the report (default: its target)
+  --label-b TEXT        name of side B in the report (default: its target)
   --out DIR             work directory; a fresh run-<timestamp> sub-directory
                         is created inside
   --as-of YYYY-MM-DD    exclude partitions on or after this date
@@ -94,8 +122,23 @@ options:
   --drill-limit N       max partitions drilled per model (default 200)
   --detail N|all        partitions listed inline in the report (default and
                         maximum 15)
+  --exclude-column COL|MODEL.COL
+                        column left out of the comparison, in every model or
+                        only in MODEL (repeatable)
+  --exclude-prefix PREFIX
+                        columns starting with PREFIX are left out (repeatable;
+                        `meta_` is always excluded unless --no-default-
+                        exclude)
+  --no-default-exclude  also compare the `meta_` columns
+  --legacy {a,b}        which side is the legacy one, the other being the
+                        migration target (default b); only words the report
   --report FILE         Markdown report path
   --json FILE           machine-readable result path
+  --no-hint             report: leave out the 'To inspect' line of each
+                        differing model
+  --no-timeline         report: leave out the per-month table of differing
+                        days
+  --technical           report: also show hash buckets and the method details
 ```
 
 ### Options of `run`
@@ -110,12 +153,29 @@ options:
 | `--project-b DIR` | same as `--project` | Project directory of side B, if it lives in another project. |
 | `--dbt-a BIN`, `--dbt-b BIN` | `dbt` | dbt binary of each side, resolved with `PATH` (and `PATHEXT` on Windows) or given as a file path. Use it to mix dbt Fusion and dbt-core, which Trino requires (dbt-core only). |
 | `--profiles-dir-a DIR`, `--profiles-dir-b DIR` | dbt default | Passed to dbt as `--profiles-dir` for that side. |
+| `--label-a TEXT`, `--label-b TEXT` | the dbt target | Name of each side in the report and in `parity.json`. |
 
 ```bash
 data-parity run orders customers --a dev --b local
 data-parity run orders,customers --a dev --b local     # same
 data-parity run --a duck --b trino --project . --project-b ./trino_project
 ```
+
+**Where to read the tables** (see [Single-engine dbt projects](/data-parity-docs/guides/single-engine-projects/))
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--schema-a [DB.]SCHEMA`, `--schema-b [DB.]SCHEMA` | none: the project's own `ref()` / `source()` | Read the table of each model in this namespace on that side, with the model's own table name. One part is a schema, two parts are `database.schema` (Trino `catalog.schema`, BigQuery `project.dataset`). Letters, digits, `_` and `-` only. |
+| `--mapping-a FILE`, `--mapping-b FILE` | none | File of `model: [db.]schema.table` lines (blank lines and `# comments` ignored, parsed and never executed). The entry of a model wins over `--schema-*`. A model mapped twice, or an invalid line, is an error. |
+| `--legacy a\|b` | `b` | Which side is the legacy one, the other being the migration target. It only changes the wording of one-sided models (*not migrated yet* / *no legacy counterpart*). |
+
+**Choosing the columns**
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--exclude-column COL`, `--exclude-column MODEL.COL` | none | Column left out on both sides, in every model or only in `MODEL`. Repeatable. Added to `meta.data_parity.exclude_columns`. Matched on the normalised column name. |
+| `--exclude-prefix PREFIX` | `meta_` | Columns starting with `PREFIX` are left out. Repeatable. |
+| `--no-default-exclude` | off | Also compare the `meta_` columns. |
 
 **Bounding the scan** (see [Scope and cost control](/data-parity-docs/guides/scope-and-cost/))
 
@@ -135,11 +195,16 @@ data-parity run orders --a dev --b local --as-of 2026-10-01
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--out DIR` | `<system temp dir>/data-parity/<project name>` | Work directory. A **fresh** `run-<timestamp>` sub-directory is created inside it (`-2`, `-3`... if it exists); nothing already there is touched. It holds `parity.md`, `parity.json`, the raw pass outputs `p1_A.txt`, `p1_B.txt`, `p2_*.txt`, `p3_*.txt`, and `raw_*.log` for any failed dbt call. |
+| `--out DIR` | `./parity_out` in the dbt project of side A | Work directory. A **fresh** `run-<timestamp>` sub-directory is created inside it (`-2`, `-3`... if it exists); nothing already there is touched. It holds `parity.md`, `parity.json`, the raw pass outputs `p1_A.txt`, `p1_B.txt`, `p2_*.txt`, `p3_*.txt`, and `raw_*.log` for any failed dbt call. |
 | `--report FILE` | `<run dir>/parity.md` | Where to write the Markdown report. |
 | `--json FILE` | `<run dir>/parity.json` | Where to write `parity.json`. With `--json`, no copy stays in the run directory, and `data-parity report` needs `parity.json` there. |
 | `--detail N` or `--detail all` | `15` (also the maximum) | Partitions listed inline in the report. The complete list is always in `parity.json`. |
+| `--no-hint` | off | Leave out the **To inspect** line of each differing model. |
+| `--no-timeline` | off | Leave out the per-month table of differing days. |
+| `--technical` | off | Also show the hash buckets and the method details. |
 | `-h`, `--help` | | Show the help of the command and exit. |
+
+The default `parity_out/` is created in the project, so add it to your `.gitignore`; the tool does not edit it.
 
 ### Defaults file
 
@@ -157,22 +222,29 @@ Re-renders `parity.md` from a saved run directory without calling dbt. Needs `pa
 in the directory (exit `2` if one is missing). Exit `0` on success.
 
 ```text
-usage: data-parity report [-h] [--out FILE] RUN_DIR
+usage: data-parity report [-h] [--out FILE] [--no-hint] [--no-timeline]
+                          [--technical]
+                          RUN_DIR
 
 Re-render parity.md from a saved run directory, without dbt.
 
 positional arguments:
-  RUN_DIR     a run directory (parity.json, p1_A.txt, p1_B.txt...)
+  RUN_DIR        a run directory (parity.json, p1_A.txt, p1_B.txt...)
 
 options:
-  -h, --help  show this help message and exit
-  --out FILE  Markdown report path (default: RUN_DIR/parity.md)
+  -h, --help     show this help message and exit
+  --out FILE     Markdown report path (default: RUN_DIR/parity.md)
+  --no-hint      report: leave out the 'To inspect' line of each differing
+                 model
+  --no-timeline  report: leave out the per-month table of differing days
+  --technical    report: also show hash buckets and the method details
 ```
 
 | Argument or option | Default | Meaning |
 |---|---|---|
 | `RUN_DIR` | required | A run directory (`parity.json`, `p1_A.txt`, `p1_B.txt`...). |
 | `--out FILE` | `RUN_DIR/parity.md` | Markdown report path. |
+| `--no-hint`, `--no-timeline`, `--technical` | off | Same as for `run`: change what the regenerated report shows. |
 
 ```console
 $ data-parity report <work dir>/run-20261025-231011
@@ -188,13 +260,16 @@ regenerated text *spread evenly* is then inexact. Only a new run gives a true ev
 
 Checks that the row hash is portable between the two engines, on 79 synthetic rows built inline (8 typed columns; no
 table is read or created). Run it first on any new pair of engines. It accepts the common options of `run`
-(`--a`, `--b`, `--dbt-a`, `--dbt-b`, `--project`, `--project-b`, `--profiles-dir-a`, `--profiles-dir-b`, `--out`; same meaning and defaults as in the tables above).
+(`--a`, `--b`, `--dbt-a`, `--dbt-b`, `--project`, `--project-b`, `--profiles-dir-a`, `--profiles-dir-b`, `--schema-a/-b`, `--mapping-a/-b`, `--label-a/-b`, `--out`; same meaning and defaults as in the tables above).
 
 ```text
 usage: data-parity conformance [-h] [--a TARGET] [--b TARGET] [--dbt-a BIN]
                                [--dbt-b BIN] [--project DIR] [--project-b DIR]
                                [--profiles-dir-a DIR] [--profiles-dir-b DIR]
-                               [--out DIR]
+                               [--schema-a [DB.]SCHEMA]
+                               [--schema-b [DB.]SCHEMA] [--mapping-a FILE]
+                               [--mapping-b FILE] [--label-a TEXT]
+                               [--label-b TEXT] [--out DIR]
 
 Exit code: 0 identical, 1 differences, 2 error.
 
@@ -209,6 +284,17 @@ options:
                         --project)
   --profiles-dir-a DIR  dbt profiles directory of side A
   --profiles-dir-b DIR  dbt profiles directory of side B
+  --schema-a [DB.]SCHEMA
+                        read the tables of side A in this schema instead of
+                        the project's own ref() (a mapping entry still wins)
+  --schema-b [DB.]SCHEMA
+                        same for side B (e.g. the legacy Trino schema of a
+                        BigQuery repo)
+  --mapping-a FILE      file `model: [db.]schema.table` giving the table read
+                        on side A (wins over --schema-a)
+  --mapping-b FILE      same for side B
+  --label-a TEXT        name of side A in the report (default: its target)
+  --label-b TEXT        name of side B in the report (default: its target)
   --out DIR             work directory; a fresh run-<timestamp> sub-directory
                         is created inside
 ```

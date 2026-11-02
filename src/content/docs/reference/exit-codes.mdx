@@ -9,7 +9,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 |--:|---|---|---|
 | `0` | `identical` | `ISO: all N models identical` | Every aggregate matched on the whole tables. |
 | `0` | `identical_scoped` | `ISO on the checked scope (...): all N models identical` | Matched inside the checked scope only. The run also prints `scope_limited: ...` and the JSON has `"scope_limited": true`. |
-| `1` | `differences` | `DIFFERENCES: K of N models differ` | At least one model differs (values, rows, or structure). |
+| `1` | `differences` | `DIFFERENCES: K of N models differ` | At least one model differs (values, rows, or structure), is found on one side only, or has a schema mismatch. |
 | `2` | `error` | `ERROR: no verdict (...)` | The comparison could not complete. |
 
 Applies to `data-parity run`. For `conformance`: `0` identical, `1` different, `2` error. For `report`: `0` or `2`.
@@ -19,7 +19,9 @@ Applies to `data-parity run`. For `conformance`: `0` identical, `1` different, `
 Any failure is `2`, **never `0` or `1`**:
 
 - dbt failed on either side (non-zero exit, or no `PARITY|` line in its output);
-- unknown target, unknown or untagged model, model missing on one side;
+- unknown target, unknown or untagged model;
+- no model of a side has a table (wrong `--schema-a/-b` or mapping: the message names the option);
+- an invalid namespace or mapping file, two models of one side with the same `compare_as` key, or two columns that normalise to the same name;
 - a malformed `PARITY|` line;
 - usage errors: missing `--a` / `--b`, no `dbt_project.yml`, invalid option values;
 - a work directory or report that cannot be written;

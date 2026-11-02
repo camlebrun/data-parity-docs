@@ -21,7 +21,10 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
     Each engine prints a row count and two hash sums per group. No row, key or business value is exported.
   </Card>
   <Card title="Portable row hash" icon="approve-check">
-    Byte-identical on DuckDB, BigQuery and Trino in the conformance test (BigQuery: inline test and one manual run, no automated suite).
+    Byte-identical on DuckDB, BigQuery and Trino in the conformance test (BigQuery also against a real dataset, outside CI).
+  </Card>
+  <Card title="No multi-engine dbt code" icon="puzzle">
+    A plain dbt repo works: point each side at its tables with `--schema-b` or a mapping file. Models are only parsed, never run on the other engine.
   </Card>
   <Card title="Drill-down" icon="magnifier">
     Partition, then bucket, then column: it names the partitions, buckets and columns that differ.
@@ -92,6 +95,7 @@ the exact differing partitions: see [Reading the report](/data-parity-docs/getti
 
 - [Install](/data-parity-docs/getting-started/install/) and [Quickstart](/data-parity-docs/getting-started/quickstart/)
 - [How it works](/data-parity-docs/concepts/how-it-works/) and [what is guaranteed](/data-parity-docs/concepts/guarantees/)
+- [Single-engine dbt projects](/data-parity-docs/guides/single-engine-projects/): compare a plain dbt repo to tables on another engine
 - [CLI reference](/data-parity-docs/reference/cli/) and [macros](/data-parity-docs/reference/macros/)
 - [Example: BigQuery vs DuckDB on a real daily aggregate](/data-parity-docs/example/agg-daily-fuel/)
 
@@ -100,9 +104,8 @@ the exact differing partitions: see [Reading the report](/data-parity-docs/getti
 :::caution[Read this before relying on it]
 - **Early software.** Version 0.1.0, not published on PyPI. Install from the public GitHub repository (`pip install "git+https://github.com/camlebrun/data-parity"` was run successfully).
 - **BigQuery**: the inline [conformance](/data-parity-docs/contributing/new-engine/) test (byte-identical to DuckDB and Trino)
-  plus one real manual run of `data-parity run` with a BigQuery table as side A against a DuckDB table, read-only. No
-  automated test of the repository covers BigQuery. The cache `bigquery__` code was never run, and cache writes on
-  BigQuery are untested.
+  and a [real BigQuery vs Trino test](/data-parity-docs/contributing/test-bed/#real-bigquery-vs-trino) that needs a GCP
+  project, so it is **not part of CI**. The cache `bigquery__` code was never run, and cache writes on BigQuery are untested.
 - **Trino** was tested on one Docker container (Trino 484, `memory` catalog), never on a real cluster.
 - **dbt Fusion has no Trino support**; Trino needs dbt-core and dbt-trino.
 - **Windows / PowerShell** commands have never been run. Python 3.9 is the declared minimum and has not been run.

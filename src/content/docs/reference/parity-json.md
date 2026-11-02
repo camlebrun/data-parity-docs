@@ -34,11 +34,18 @@ omitted (`models_total` and `models_differing` still count all three):
     "buckets": 256,
     "as_of": null,
     "last": null,
-    "drill_limit": 200
+    "drill_limit": 200,
+    "exclude_columns": [],
+    "exclude_prefixes": [],
+    "no_default_exclude": false,
+    "legacy": "b"
   },
   "command": "data-parity run --a engine_a --b engine_b",
   "models_total": 3,
   "models_differing": 3,
+  "only_in_a": [],
+  "only_in_b": [],
+  "schema_mismatch": [],
   "errors": [],
   "error_detail": [],
   "models": [
@@ -98,6 +105,10 @@ omitted (`models_total` and `models_differing` still count all three):
       ],
       "table_level_buckets": [],
       "structure_diff": [],
+      "structure_kind": "",
+      "columns_only_a": [],
+      "columns_only_b": [],
+      "column_type_diff": [],
       "notes": [],
       "scope": [],
       "excluded_columns": "meta_loaded_at",
@@ -119,9 +130,11 @@ omitted (`models_total` and `models_differing` still count all three):
 | `scope` | string | `"whole tables"` or a description such as `"last 5 partitions"` or `"last 30 partitions / before 2026-10-01"`. |
 | `started` | string | Local start time, `YYYY-MM-DD HH:MM`. |
 | `side_a`, `side_b` | object | `{"label": ..., "target": ...}`: the label shown in the report and the dbt target. |
-| `options` | object | `models` (list, empty = every tagged model), `buckets`, `as_of` (string or null), `last` (integer or null), `drill_limit`. |
+| `options` | object | `models` (list, empty = every tagged model), `buckets`, `as_of` (string or null), `last` (integer or null), `drill_limit`, `exclude_columns` and `exclude_prefixes` (lists given on the command line), `no_default_exclude` (boolean), `legacy` (`"a"` or `"b"`, the legacy side). |
 | `command` | string | The exact command to reproduce the run (default values are omitted). |
 | `models_total`, `models_differing` | integer | Counts over all models compared. |
+| `only_in_a`, `only_in_b` | list of strings | Models found (opted in, with a table) on one side only. They are findings: the run exits `1`. |
+| `schema_mismatch` | list of strings | Models whose compared columns differ between the sides. |
 | `errors`, `error_detail` | list of strings | The error message(s) and the dbt log tails when `verdict` is `error`; otherwise empty. |
 | `models` | list | One object per model, below. |
 
@@ -130,7 +143,7 @@ omitted (`models_total` and `models_differing` still count all three):
 | Field | Type | Meaning |
 |---|---|---|
 | `model` | string | dbt model name. |
-| `verdict` | string | `iso`, `diff` or `structure` (columns, types, key or presence differ between sides). |
+| `verdict` | string | `iso`, `diff` or `structure` (columns, types, key or presence differ between sides; see `structure_kind`). |
 | `rows_a`, `rows_b` | integer or null | Total rows on each side (within the scope). |
 | `delta_rows` | integer or null | `rows_b - rows_a`. |
 | `primary_key` | string | Comma-separated key columns, or `none`. |
@@ -142,6 +155,9 @@ omitted (`models_total` and `models_differing` still count all three):
 | `differing_partitions` | list | **Every** differing partition, not just the 15 listed in the Markdown. See below. |
 | `table_level_buckets` | list | For an unpartitioned model: `{"bucket", "kind", "rows_a", "rows_b"}`. |
 | `structure_diff` | list of strings | What differs when `verdict` is `structure`. |
+| `structure_kind` | string | When `verdict` is `structure`: `only_a` or `only_b` (the model exists on one side only), `schema` (the compared columns differ), else empty. |
+| `columns_only_a`, `columns_only_b` | list of strings | For a schema mismatch: the normalised names of the columns found on one side only. |
+| `column_type_diff` | list | Columns present on both sides whose logical types differ. |
 | `notes` | list of strings | Informational notes from the macro (for example, no partition column). |
 | `scope` | list of strings | Scope lines from the macro: `|`-separated `key=value` fields (`last`, `checked`, `total`, `from`, `to`). |
 | `excluded_columns` | string | Comma-separated excluded columns. |

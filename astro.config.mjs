@@ -57,6 +57,7 @@ export default defineConfig({
           label: 'Guides',
           items: [
             'guides/configure-models',
+            'guides/single-engine-projects',
             'guides/scope-and-cost',
             'guides/engines',
             'guides/ci',

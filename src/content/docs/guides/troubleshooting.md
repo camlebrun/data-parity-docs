@@ -30,6 +30,21 @@ First look at the work directory printed as `data-parity: work files: <dir>`: it
 | `data_parity_reconcile: no model tagged data_parity` / `no model in the outputs: tag your models with data_parity` | Nothing tagged. With dbt Fusion put `tags` and `meta` under `config:`. |
 | `model(s) not found in the dbt output: X (missing on side A). Check the spelling...` | The model is absent on one side (disabled, or not tagged on that side). |
 
+## Single-engine projects
+
+| Message | Cause and remedy |
+|---|---|
+| `the data_parity package is not installed in this project: run `dbt deps` in that project` | The package is missing in the project of that side. |
+| `the project does not parse or compile (<file>:<line>): ...` | dbt could not parse the project on that target. Fix the file named, or check you pass the right `--project` / `--project-b`. |
+| `a ref() cannot be resolved: model or source 'X' does not exist in this project ...` | A `ref` or `source` of the repo is missing on that target. Check the name, run `dbt deps`, or check the project directory. |
+| `the dbt target or profile cannot be used: ...; check --a/--b and --profiles-dir-*` | Unknown target or profile for that side. |
+| `data_parity: the namespace (--schema-a / --schema-b) must be [database.]schema, got '...'` | Namespace with more than two parts, or characters other than letters, digits, `_`, `-`. |
+| `<file>:<line>: expected `model: [database.]schema.table`` | A line of a mapping file is malformed. A model mapped twice is also refused. |
+| `data_parity cache: X: relation ... not found or has no columns on target T (check rel_namespace / relations)` | The table does not exist in the namespace on that side. Check `--schema-*` / `--mapping-*`. If **no** model of a side has a table, the run stops with exit `2` naming the option. |
+| `models 'X' and 'Y' have the same match key 'K' (meta.data_parity.compare_as) on this side` | Two models of one side share a key. Change one `compare_as`. |
+| A model is reported *only in the legacy side* / *only in the target side* | Not an error: it is opted in, or has a table, on one side only (exit `1`). Check the opt-in on the other side, or the mapping. |
+| `schema mismatch` naming columns of each side | The compared columns differ after exclusions. Add the column to `--exclude-column` if the difference is expected, or fix the table. |
+
 ## Model configuration
 
 | Message | Cause and remedy |
