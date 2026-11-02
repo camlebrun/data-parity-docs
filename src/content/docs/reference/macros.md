@@ -27,7 +27,7 @@ Output is always text lines. Lines that start with `PARITY|` are the **contract*
 dbt run-operation data_parity_reconcile --args '{only: [orders], level: 1}'
 ```
 
-Signature: `data_parity_reconcile(only=none, level=3, drill=none, drill_buckets=none, buckets=256, as_of=none, partitions=none)`.
+Signature: `data_parity_reconcile(only=none, level=3, drill=none, drill_buckets=none, buckets=256, as_of=none, partitions=none, rel_namespace=none, relations=none, exclude_columns=none, exclude_prefixes=none, no_default_exclude=false)`.
 All arguments are optional.
 
 | Argument | Type | Default | Meaning |
@@ -42,11 +42,24 @@ All arguments are optional.
 
 `as_of` is applied before `partitions: {last: N}`.
 
+The last five arguments are what `--schema-a/-b`, `--mapping-a/-b`, `--exclude-column`, `--exclude-prefix` and
+`--no-default-exclude` pass for you (see [Single-engine dbt projects](/data-parity-docs/guides/single-engine-projects/)):
+
+| Argument | Type | Default | Meaning |
+|---|---|---|---|
+| `rel_namespace` | `'[database.]schema'` | none | Read each model's table in this namespace, with the identifier of the model's own `ref()`, instead of the `ref()` itself. Quoted by the adapter. Letters, digits, `_` and `-` only, at most two parts. |
+| `relations` | `{model: '[database.]schema.table'}` | none | The table read for a model. Wins over `rel_namespace`. A two-part entry keeps the database of the model's own relation. |
+| `exclude_columns` | string or list | none | Columns left out in every model, or `model.column` for one model. Matched on the normalised column name. |
+| `exclude_prefixes` | string or list | `meta_` | Column-name prefixes left out. An empty prefix is an error. |
+| `no_default_exclude` | boolean | `false` | Also compare the `meta_` columns. |
+
+Without these arguments the table read is the model's own `ref()`, as before.
+
 ### Which models and what is compared
 
 A model is in scope if it is tagged `data_parity` or has `config.meta.data_parity`; it is opted out with
 `meta: {data_parity: false}` or `enabled: false`. The keys of `meta.data_parity` (`partition_column`, `primary_key`,
-`exclude_columns`, `exclude_prefixes`, `enabled`) are described in [Configure your models](/data-parity-docs/guides/configure-models/).
+`exclude_columns`, `exclude_prefixes`, `enabled`, `compare_as`) are described in [Configure your models](/data-parity-docs/guides/configure-models/).
 
 ### Output lines
 
@@ -86,6 +99,13 @@ col|<p>|<b>|<column>|rows=|h1=|h2=
 | `bucket` | 2 | Aggregates per (partition, bucket). |
 | `col` | 3 | Aggregates of the hash of key + that column. |
 
+A model whose table does not exist on the side prints `## <key>` then `absent|<relation>` only; the CLI turns it into a
+"only on the other side" finding, or into an error when no model of the side has a table.
+
+In the `cols|` and `col|` lines a column is shown under its **normalised name** (lower-cased, every character outside
+`[a-z0-9_]` replaced by `_`), and the columns are sorted on it; this is what makes `order/id` on Trino and `order_id` on
+BigQuery hash the same. When a model has `meta.data_parity.compare_as`, the key printed after `## ` is that value.
+
 The line `NOTE|<model>|excluded=<columns>` (not a `PARITY|` line) lists the excluded columns; the CLI reads it for the
 **Not checked** section.
 
@@ -114,11 +134,12 @@ See [The closed-partition cache](/data-parity-docs/concepts/cache/) for the mode
 | `only` | all tagged models | Restrict to these models. |
 | `schema` | var `data_parity_cache_schema`, else **none** | Schema of the `data_parity_cache` table. Letters, digits, `_` and `-` only. With no schema, `write: true`, `cached_pass1` and `cache_verify` refuse to run. |
 | `lag_days` | `3` | A partition is **closed** if it is older than `reference_date - lag_days`. Integer ≥ 0. |
+| `rel_namespace`, `relations`, `exclude_columns`, `exclude_prefixes`, `no_default_exclude` | none | Same meaning as in `data_parity_reconcile`. |
 | `reference_date` | current date | Date from which the cutoff is computed. **Not** the `as_of` of `data_parity_reconcile`: it filters no row. |
 
 ### `data_parity_cache_refresh`
 
-`data_parity_cache_refresh(only=none, lag_days=3, reference_date=none, schema=none, write=false)`
+`data_parity_cache_refresh(only=none, lag_days=3, reference_date=none, schema=none, write=false, rel_namespace=none, relations=none, exclude_columns=none, exclude_prefixes=none, no_default_exclude=false)`
 
 Finds closed partitions missing from the cache or stale, computes them live and stores them. **Dry run unless
 `write: true`.** `write` accepts a boolean or the strings `true` / `false`.
@@ -130,7 +151,7 @@ dbt run-operation data_parity_cache_refresh --args '{schema: dp_cache, write: tr
 
 ### `data_parity_cached_pass1`
 
-`data_parity_cached_pass1(only=none, lag_days=3, reference_date=none, schema=none, as_of=none, partitions=none)`
+`data_parity_cached_pass1(only=none, lag_days=3, reference_date=none, schema=none, as_of=none, partitions=none, rel_namespace=none, relations=none, exclude_columns=none, exclude_prefixes=none, no_default_exclude=false)`
 
 Prints the pass-1 contract lines. Closed, trusted partitions come from the cache; open or untrusted ones are scanned
 live. Never writes. Passing `as_of` or `partitions` is a **compile error** (`does not support as_of / partitions`): use
@@ -142,7 +163,7 @@ dbt run-operation data_parity_cached_pass1 --args '{schema: dp_cache}' | sed -n 
 
 ### `data_parity_cache_verify`
 
-`data_parity_cache_verify(only=none, sample=5, schema=none, fail_on_stale=true, lag_days=3, reference_date=none)`
+`data_parity_cache_verify(only=none, sample=5, schema=none, fail_on_stale=true, lag_days=3, reference_date=none, rel_namespace=none, relations=none, exclude_columns=none, exclude_prefixes=none, no_default_exclude=false)`
 
 Recomputes `sample` random cached partitions live and prints `VERIFY|OK|...` or `VERIFY|STALE|...`. Fails the run on
 `STALE` unless `fail_on_stale: false`.
